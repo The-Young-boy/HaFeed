@@ -37,9 +37,14 @@ fn newer(a: &str, b: &str) -> bool {
     x > y
 }
 
+/// A dev build has no version built in: the installed package says which one it is.
+fn installed() -> String {
+    let m = std::env::current_exe().ok().and_then(|e| std::fs::read_to_string(e.with_file_name("AppxManifest.xml")).ok()).unwrap_or_default();
+    m.split("Version=\"").nth(1).and_then(|v| v.split('"').next()).map(|v| v.strip_suffix(".0").unwrap_or(v).to_string()).unwrap_or_default()
+}
 pub fn status() -> String {
     let s = ST.lock().unwrap();
-    json!({ "current": VERSION.unwrap_or(""), "latest": s.latest, "state": s.state, "note": s.note, "auto": auto(), "dev": VERSION.is_none() }).to_string()
+    json!({ "current": VERSION.map(str::to_string).unwrap_or_else(installed), "latest": s.latest, "state": s.state, "note": s.note, "auto": auto(), "dev": VERSION.is_none() }).to_string()
 }
 fn set(state: &'static str, note: &str) {
     let mut s = ST.lock().unwrap();
