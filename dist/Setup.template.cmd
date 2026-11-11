@@ -451,12 +451,31 @@ $Worker = {
             }
 
             Step 2 'run'
-            $msix = Join-Path $env:TEMP "$PkgName.msix"
-            [IO.File]::WriteAllBytes($msix, (Get-Data 'MSIX'))
-            try { Add-AppxPackage -Path $msix -AllowUnsigned -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop }
-            catch { Step 2 'fail' "ההתקנה נכשלה: $(($_.Exception.Message -split "`r?`n")[0])"; throw 'stop' }
-            finally { Remove-Item $msix -Force -ErrorAction SilentlyContinue }
-            Step 2 'ok' 'מותקן.'
+            # A newer release on GitHub wins over the package inside this file. It is signed with the same
+            # certificate, so Windows accepts it; anything else fails, and the package inside is installed instead.
+            $done = $null
+            try {
+                $rel = Invoke-RestMethod 'https://api.github.com/repos/The-Young-boy/HaFeed/releases/latest' -Headers @{ 'User-Agent' = 'HaFeed-Setup' } -TimeoutSec 15
+                $tag = [version]($rel.tag_name.TrimStart('v'))
+                $asset = $rel.assets | Where-Object name -eq 'HaFeed.msix' | Select-Object -First 1
+                if ($asset -and $tag -gt [version]$Version) {
+                    Step 2 'run' "מוריד את גרסה $tag מ-GitHub..."
+                    $newer = Join-Path $env:TEMP "$PkgName-$tag.msix"
+                    curl.exe -sSfL -o $newer $asset.browser_download_url
+                    if (-not $LASTEXITCODE -and (Test-Path $newer)) {
+                        try { Add-AppxPackage -Path $newer -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop; $done = "$tag" } catch { }
+                    }
+                    Remove-Item $newer -Force -ErrorAction SilentlyContinue
+                }
+            } catch { }
+            if (-not $done) {
+                $msix = Join-Path $env:TEMP "$PkgName.msix"
+                [IO.File]::WriteAllBytes($msix, (Get-Data 'MSIX'))
+                try { Add-AppxPackage -Path $msix -AllowUnsigned -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop; $done = $Version }
+                catch { Step 2 'fail' "ההתקנה נכשלה: $(($_.Exception.Message -split "`r?`n")[0])"; throw 'stop' }
+                finally { Remove-Item $msix -Force -ErrorAction SilentlyContinue }
+            }
+            Step 2 'ok' "גרסה $done מותקנת. מעכשיו היא מתעדכנת לבד."
             # The widgets button on the taskbar. Newer Windows protects this value from scripts (UCPD);
             # then the done page opens the taskbar settings instead of working around it.
             $k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
@@ -500,7 +519,7 @@ function Start-Work($mode) {
     }
     $ps = [PowerShell]::Create()
     # הפונקציות של המתקין לא קיימות ב-runspace החדש, ולכן מגדירים שם את מה שצריך.
-    $defs = "function Get-Data { ${function:Get-Data} }`nfunction Test-Trusted { ${function:Test-Trusted} }`n`$CertThumb = '$CertThumb'`nfunction Get-Runtime { ${function:Get-Runtime} }`n`$Self = '$($Self -replace "'", "''")'"
+    $defs = "function Get-Data { ${function:Get-Data} }`nfunction Test-Trusted { ${function:Test-Trusted} }`n`$CertThumb = '$CertThumb'`n`$Version = '$Version'`nfunction Get-Runtime { ${function:Get-Runtime} }`n`$Self = '$($Self -replace "'", "''")'"
     $ps.AddScript($defs).AddStatement() | Out-Null
     $ps.AddScript($Worker.ToString()).AddArgument($Sync).AddArgument($Self).AddArgument($PkgName).AddArgument($mode) | Out-Null
     $script:Job = @{ Ps = $ps; Handle = $ps.BeginInvoke(); Rows = $rows; Mode = $mode }

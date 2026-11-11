@@ -11,6 +11,7 @@ mod login;
 mod clip;
 mod notify;
 mod widgets;
+mod update;
 
 use bindings::*;
 use core::ffi::c_void;
@@ -152,6 +153,17 @@ impl IFeedResourceProvider_Impl for Provider_Impl {
             widgets::push(&http::query(q, "d").next().unwrap_or_default());
             return args.SetResponse(&respond(b"ok", "text/plain", 200)?);
         }
+        // /winfeed/update?do=check|install[&auto=0|1]: the About tab (see update.rs).
+        if let Some(q) = uri.split_once("/winfeed/update").map(|(_, q)| q) {
+            let q = q.trim_start_matches('?');
+            if let Some(a) = http::query(q, "auto").next() { update::set_auto(a == "1"); }
+            match http::query(q, "do").next().as_deref() {
+                Some("check") => update::check(false),
+                Some("install") => { std::thread::spawn(|| update::check(true)); }
+                _ => {}
+            }
+            return args.SetResponse(&respond(update::status().as_bytes(), "application/json", 200)?);
+        }
         // /winfeed/open?u=<https url>: the default browser (the board's own web view would keep it inside).
         if let Some(q) = uri.split_once("/winfeed/open?").map(|(_, q)| q) {
             let url = http::query(q, "u").next().unwrap_or_default();
@@ -269,6 +281,7 @@ fn main() {
         if !ok1 && !ok2 {
             return;
         }
+        update::start();
         // ponytail: never signalled; the board starts us on demand and Windows ends us with the session.
         let ev = CreateEventW(core::ptr::null(), BOOL(1), BOOL(0), core::ptr::null());
         let mut idx = 0u32;

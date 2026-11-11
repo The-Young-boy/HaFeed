@@ -20,12 +20,14 @@ if (([regex]::Matches($patched, '"IL"')).Count -ne $Rules.Count) { throw 'policy
 
 # 2. Exe without local paths in its panic strings.
 $env:HZ_CLSID = $Clsid
+# The provider compares this with the GitHub releases (update.rs); the dev build has none and never updates.
+$env:HZ_VERSION = [regex]::Match((Get-Content package\AppxManifest.xml -Raw), 'Identity[^>]*Version="([\d.]+)"').Groups[1].Value -replace '\.0$', ''
 $env:HZ_WCLSID = $WClsid
 $env:CARGO_TARGET_DIR = "$root\target\dist"
 $env:RUSTFLAGS = "--remap-path-prefix=$env:USERPROFILE\.cargo\registry\src=crates --remap-path-prefix=$root=src"
 cargo build --release -q
 if ($LASTEXITCODE) { throw 'build failed' }
-Remove-Item Env:HZ_CLSID, Env:HZ_WCLSID, Env:CARGO_TARGET_DIR, Env:RUSTFLAGS
+Remove-Item Env:HZ_CLSID, Env:HZ_WCLSID, Env:HZ_VERSION, Env:CARGO_TARGET_DIR, Env:RUSTFLAGS
 $exe = "$root\target\dist\release\hagizra-widget.exe"
 if ([Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($exe)) -match [regex]::Escape($env:USERNAME)) { throw 'exe still contains a local path' }
 
@@ -70,4 +72,6 @@ $cmd += "<#`r`nCERT:" + [Convert]::ToBase64String($cert.RawData) +
         "`r`nLOGO:" + [Convert]::ToBase64String([IO.File]::ReadAllBytes("$root\package\Images\logo.png")) + "`r`n#>`r`n"
 [IO.File]::WriteAllText("$out\HaFeed-Setup.cmd", $cmd, [Text.UTF8Encoding]::new($false))
 Remove-Item $stage -Recurse -Force
-"built $out\HaFeed-Setup.cmd ($v, $([int]((Get-Item "$out\HaFeed-Setup.cmd").Length / 1KB)) KB)"
+# The release asset the updater and the installer look for (update.rs, Setup.template.cmd).
+Copy-Item "$out\HagizraFeed.msix" "$out\HaFeed.msix" -Force
+"built $out\HaFeed-Setup.cmd and $out\HaFeed.msix ($v, $([int]((Get-Item "$out\HaFeed-Setup.cmd").Length / 1KB)) KB)"

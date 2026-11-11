@@ -41,6 +41,8 @@ createServer(async (req, res) => {
     } else if (u.pathname === "/winfeed/notify" || u.pathname === "/winfeed/log") {
       console.log(u.pathname, Object.fromEntries(u.searchParams)); // notifications and page logs: the provider's job in the board
       res.writeHead(200, { "content-type": "text/plain" }).end("");
+    } else if (u.pathname === "/winfeed/update") {
+      res.writeHead(200, { "content-type": "application/json" }).end(`{"current":"","latest":"","state":"idle","note":"","auto":true,"dev":true}`); // updates are the provider's
     } else if (u.pathname === "/winfeed/auth") {
       res.writeHead(200, { "content-type": "application/json" }).end(`{"signed":[],"pending":[],"failed":{}}`); // sign-in only works in the board
     } else if (u.pathname === "/widgets/cards.json") {
