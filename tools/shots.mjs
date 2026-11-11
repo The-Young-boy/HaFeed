@@ -25,6 +25,7 @@ const cdp = (method, params = {}) => new Promise((r) => { waiting.set(++id, r); 
 const js = async (expr) => (await cdp("Runtime.evaluate", { expression: expr, awaitPromise: true, returnByValue: true })).result?.result?.value;
 
 async function shot(name, { dark = false, w = 720, h = 1100, prep = "" } = {}) {
+  if (process.env.ONLY && !process.env.ONLY.split(",").includes(name)) return;
   await cdp("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 2, mobile: false });
   await cdp("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: dark ? "dark" : "light" }] });
   await cdp("Page.navigate", { url: URL });
@@ -46,6 +47,7 @@ await shot("feed-dark", { dark: true });
 await shot("feed-news", { prep: `document.querySelector('#tabs [data-f="news"]')?.click(); await new Promise(r => setTimeout(r, 4000));` });
 for (const t of ["display", "notify", "feeds", "sources", "accounts", "about"]) await shot("set-" + t, { prep: tab(t) });
 await shot("set-notify-dark", { dark: true, prep: tab("notify") });
+await shot("set-sources-dark", { dark: true, prep: tab("sources") });
 await shot("set-all", { prep: tab("feeds") + ` await new Promise(r => setTimeout(r, 300)); document.querySelector('.frow[data-id="all"] .chip').click();` });
 await shot("set-advanced", { prep: tab("about") + ` await new Promise(r => setTimeout(r, 300)); document.querySelector('#advOpen').click();` });
 await shot("wizard", { prep: `openWizard(0);` });
