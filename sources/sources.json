@@ -1,0 +1,870 @@
+[
+  {
+    "id": "hagizra",
+    "name": "הגיזרה 💥",
+    "site": "https://hagizra.news/",
+    "category": "news",
+    "platform": "chat",
+    "platformVariant": "thechats",
+    "api": {
+      "list": "https://hagizra.news/api/messages?limit=30",
+      "olderParam": "offset=<oldest id seen> (exclusive: returns ids < offset, newest first)",
+      "auth": null
+    },
+    "shape": {
+      "container": "bare JSON array",
+      "id": "id (int)",
+      "text": "text (markdown, type='md')",
+      "time": "timestamp (ISO-8601 UTC, up to ns precision, e.g. 2026-11-11T10:14:33.947568669Z)",
+      "edited": "last_edit ('0001-01-01T00:00:00Z' = never)",
+      "media": "text is markdown. Media are inline links: [image-embedded#](URL#WxH) (also seen with leading '!' and with a trailing ':' after WxH, e.g. #800x533:), [video-embedded#](URL[#WxH]), [audio-embedded#](URL), [quote-embedded#](<quotedId>@<quoted text, may contain %29 for ')'>). The #WxH suffix is optional. URLs may be relative (/api/files/<sha1>) - prefix with the site origin. file{url,filename,filetype} exists but was empty in all samples.",
+      "deleted": "deleted (bool) - skip when true",
+      "reactions": "reactions {emoji:count}",
+      "views": "views",
+      "author": "author ('Anonymous' on most channels)",
+      "breaking": "breakingId (int, 0 = not breaking)",
+      "other": "scheduledId, silent (bool), tags[]"
+    },
+    "adMarkers": [
+      "is_ads: true (author-set flag, also used for paid fundraising/campaign posts that look like news)"
+    ],
+    "breaking": "breakingId > 0 on a message = it is in the breaking strip (value = breaking item id). Separate endpoint GET /api/breaking -> {color, items:[{id, messageId, title, text, imageUrl, redirectId, createdAt (unix s), createdBy, messageTimestamp (unix s)}]}. Live updates via SSE GET /api/events, event 'breaking_update' with the same payload. Click: if redirectId -> open /api/r/<redirectId> in a new tab; else jumpToMessage(messageId) + navigate('/') (scrolls the chat to that message, loading it with /api/v3/messages?around=<id>&limit=N if needed). See NOTES.md.",
+    "mediaHosts": [
+      "stream.hagizra.news"
+    ],
+    "logo": "https://stream.hagizra.news/2372e00f8639/STK-20260605-WA0078.webp",
+    "cors": "none",
+    "status": "ok",
+    "notes": "Newer API used by the site: GET /api/v3/messages?offset=0&limit=N&direction=desc -> {messages:[...], reactions:{<id>:{emoji:n}}, my_reactions:{}} (offset=<id> with direction=desc returns ids < offset; around=<id>&limit=N centres on a message). /api/messages (bare array) still works and embeds reactions per message. channel info: GET /api/channel/info and /api/channel/branding. SSE /api/events also emits 'reactions' and 'heartbeat'. Extra fields: scheduledId, silent, tags[]."
+  },
+  {
+    "id": "hateder-pargod",
+    "name": "התדר - עדכונים מסוננים מקבוצת הפרגוד",
+    "site": "https://hateder.net/pargod",
+    "category": "news",
+    "platform": "hateder",
+    "api": {
+      "list": "https://hateder.net/api/messages?source=pargod&md=68a154a47d",
+      "olderParam": "before=<oldest id> (exclusive) -> {messages:[30 items, ascending], more:bool}. Newer: since=<last id>&ev=<edit cursor>. Single item: before=<id+1>&upto=<id>.",
+      "auth": null
+    },
+    "shape": {
+      "container": "first page: object {boot, build, fixes[], gone[], last_id, messages[200, ASCENDING by id], pair, permalinks, polls, reacts, readers, ready, total, views}; older page (before=): {messages[30], more}",
+      "id": "id (int); tg_id = source Telegram message id",
+      "text": "text (plain). With &md=<MD_V> the server also sends rich (markdown **bold**) and lead (first line/headline). original = unedited text.",
+      "time": "ts (ISO-8601 with Israel offset, e.g. 2026-11-11T12:13:28+02:00)",
+      "media": "media ('image'|'video'|'audio'|null), media_url (absolute https://media.hateder.net/...), media_ar (aspect ratio), media_key. Top-level fixes[] = late-arriving media for ids already sent.",
+      "deleted": "deleted (bool); top-level gone[] = ids removed",
+      "other": "kind ('news' only seen; client also knows 'summary'), pinned, poll, reply_to, edited, rewritten, reacts{counts,mine}, views, source"
+    },
+    "adMarkers": [
+      "none inside messages: ads are separate HTML slots from easy-click.online ads.js (sidebar/header), reported via /api/adseen and /api/adclick. Feed JSON is clean."
+    ],
+    "breaking": "no breaking flag; pinned (bool) exists",
+    "mediaHosts": [
+      "media.hateder.net"
+    ],
+    "logo": "https://media.hateder.net/image/2026/09/9835538f344117f051b0fc94.JPG",
+    "favicon": "https://media.hateder.net/image/2026/09/d93564b42227a6325d0e46b5.png",
+    "cors": "none",
+    "status": "ok",
+    "notes": "NOT the chat platform: a server-rendered Flask-like site. /pargod/api/messages is 404; the real path is /api/messages?source=<slug>. md param value is the page's MD_V constant (68a154a47d at time of writing; it changes with site builds - read it from the HTML 'var MD_V = \"...\"' if rich text is needed; without md you get plain text only). limit param is ignored. Responses are edge-cached (s-maxage=5). Text often starts with 'הפרגוד: ' prefix. Content: Haredi general news filtered from the 'Pargod' WhatsApp group."
+  },
+  {
+    "id": "hateder-pargodmusic",
+    "name": "התדר - עדכוני הפרגוד מיוזיק",
+    "site": "https://hateder.net/pargodmusic",
+    "category": "music",
+    "platform": "hateder",
+    "api": {
+      "list": "https://hateder.net/api/messages?source=pargodmusic&md=68a154a47d",
+      "olderParam": "before=<oldest id> (exclusive) -> {messages:[30 items, ascending], more:bool}. Newer: since=<last id>&ev=<edit cursor>. Single item: before=<id+1>&upto=<id>.",
+      "auth": null
+    },
+    "shape": {
+      "container": "first page: object {boot, build, fixes[], gone[], last_id, messages[200, ASCENDING by id], pair, permalinks, polls, reacts, readers, ready, total, views}; older page (before=): {messages[30], more}",
+      "id": "id (int); tg_id = source Telegram message id",
+      "text": "text (plain). With &md=<MD_V> the server also sends rich (markdown **bold**) and lead (first line/headline). original = unedited text.",
+      "time": "ts (ISO-8601 with Israel offset, e.g. 2026-11-11T12:13:28+02:00)",
+      "media": "media ('image'|'video'|'audio'|null), media_url (absolute https://media.hateder.net/...), media_ar (aspect ratio), media_key. Top-level fixes[] = late-arriving media for ids already sent.",
+      "deleted": "deleted (bool); top-level gone[] = ids removed",
+      "other": "kind ('news' only seen; client also knows 'summary'), pinned, poll, reply_to, edited, rewritten, reacts{counts,mine}, views, source"
+    },
+    "adMarkers": [
+      "none inside messages: ads are separate HTML slots from easy-click.online ads.js (sidebar/header), reported via /api/adseen and /api/adclick. Feed JSON is clean."
+    ],
+    "breaking": "no breaking flag; pinned (bool) exists",
+    "mediaHosts": [
+      "media.hateder.net"
+    ],
+    "logo": "https://media.hateder.net/image/2026/09/9835538f344117f051b0fc94.JPG",
+    "favicon": "https://media.hateder.net/image/2026/09/5b28a8a4f17b2117fcb9e487.png",
+    "cors": "none",
+    "status": "ok",
+    "notes": "NOT the chat platform: a server-rendered Flask-like site. /pargod/api/messages is 404; the real path is /api/messages?source=<slug>. md param value is the page's MD_V constant (68a154a47d at time of writing; it changes with site builds - read it from the HTML 'var MD_V = \"...\"' if rich text is needed; without md you get plain text only). limit param is ignored. Responses are edge-cached (s-maxage=5). Text often starts with 'הפרגוד: ' prefix. Content is Haredi music news (clips, weddings, albums)."
+  },
+  {
+    "id": "black-cat",
+    "name": "black-cat (unknown)",
+    "site": "https://black-cat.thechats.click/",
+    "category": "unknown",
+    "platform": "chat",
+    "platformVariant": "thechats (by domain)",
+    "api": {
+      "list": "https://black-cat.thechats.click/api/messages?limit=30",
+      "olderParam": "offset=<id> (expected)",
+      "auth": null
+    },
+    "shape": {},
+    "adMarkers": [],
+    "breaking": "unknown",
+    "mediaHosts": [],
+    "logo": null,
+    "cors": "unknown",
+    "status": "blocked",
+    "blockedReason": "local-dns-filter",
+    "notes": "The development machine's local resolver answers 0.0.0.0 / :: for black-cat.thechats.click (a filter on that network). Public DNS gives 144.91.100.123 (same server as ysiva.thechats.click). Not bypassed on purpose. Real content could not be checked."
+  },
+  {
+    "id": "musiconline",
+    "name": "מיוזיק אונליין",
+    "site": "https://music.chatfree.app/ -> https://n.musiconline.co.il/",
+    "category": "music",
+    "platform": "chat",
+    "platformVariant": "chatfree",
+    "api": {
+      "list": "https://n.musiconline.co.il/api/messages?limit=30",
+      "olderParam": "offset=<oldest id - 1>&direction=desc (offset is INCLUSIVE: returns ids <= offset, newest first). direction=asc returns ids >= offset (newer). Optional &topic=<key>.",
+      "auth": null
+    },
+    "shape": {
+      "container": "object {messages:[...], metadata:{scannedRange:{minId,maxId},requestedStart,direction}}",
+      "id": "id (int)",
+      "text": "text (markdown, type='md')",
+      "time": "timestamp (ISO-8601 UTC, e.g. 2026-11-11T07:10:13.487585Z; precision varies)",
+      "edited": "last_edit ('0001-01-01T00:00:00Z' = never)",
+      "media": "text is markdown. Media are inline links: [image-embedded#](URL#WxH) (also seen with leading '!' and with a trailing ':' after WxH, e.g. #800x533:), [video-embedded#](URL[#WxH]), [audio-embedded#](URL), [quote-embedded#](<quotedId>@<quoted text, may contain %29 for ')'>). The #WxH suffix is optional. URLs may be relative (/api/files/<sha1>) - prefix with the site origin. file{url,filename,filetype} exists but was empty in all samples.",
+      "deleted": "deleted (bool)",
+      "reactions": "reactions {emoji:count}",
+      "views": "views",
+      "author": "author (real writer names on some channels), authorPictureUrl (optional)",
+      "other": "isThread, topicIds[], topicId, approvalStatus ('approved')"
+    },
+    "adMarkers": [
+      "isAds: true (e.g. 'פליי סטייל מגישים:' sponsored set)",
+      "text pattern '<brand> מגישים:' at the start",
+      "footer boilerplate in every post: '--- *אהבתם? שימו לייק👍* לשליחת תוכן ולפרסום באתר ...' + YouTube subscribe link (strip it, not an ad)"
+    ],
+    "breaking": "none (no /api/breaking on chatfree builds)",
+    "mediaHosts": [
+      "hel1.your-objectstorage.com",
+      "youtube.com",
+      "youtu.be",
+      "www.youtube.com"
+    ],
+    "logo": "https://hel1.your-objectstorage.com/chatfree-music/c7/63/c7631c5b538b3b63197648b16f72bf2b4907ef871747f9a923950c3bcbc3e025",
+    "cors": "none",
+    "status": "ok",
+    "notes": "music.chatfree.app answers 301 to https://n.musiconline.co.il/ for every path (API too) - use the new host. Banner ads: Separate banner-ad column (not in the feed): GET /api/ads/active -> [{id,title,imageUrl,linkUrl,isActive,expiresAt}]; GET /api/ads/display-settings. Ignore for the reader. Many posts link YouTube URLs in plain text."
+  },
+  {
+    "id": "music-express",
+    "name": "מוזיקה אקספרס",
+    "site": "https://music-express.chatfree.app/",
+    "category": "music",
+    "platform": "chat",
+    "platformVariant": "chatfree",
+    "api": {
+      "list": "https://music-express.chatfree.app/api/messages?limit=30",
+      "olderParam": "same as other 'chatfree' channels",
+      "auth": {
+        "type": "google-oauth-only (channel setting require_auth=true)",
+        "steps": [
+          "All /api/* (messages, breaking, user-info) answer 401 'User not authenticated' without a session.",
+          "There is NO guest/anonymous login endpoint in the bundle. The only auth endpoints are /auth/google, /auth/login, /auth/logout.",
+          "GET /auth/google -> {googleOauthUrl, googleOauthScope (email+profile), googleClientId}.",
+          "Browser goes to Google OAuth with redirect_uri=<origin>/login; Google returns ?code=...",
+          "App POSTs /auth/login {code} -> server sets its session cookie (name not observed: we did not log in).",
+          "Only route for a reader: a real user signs in with Google once in a browser and the proxy reuses that session cookie. Not done here (no logins allowed)."
+        ]
+      }
+    },
+    "shape": {
+      "note": "not observed (401). Expected same as the 'chatfree' variant."
+    },
+    "adMarkers": [
+      "unknown (not observed); expect isAds / is_ads like the rest of the platform"
+    ],
+    "breaking": "unknown",
+    "mediaHosts": [],
+    "logo": "https://music-express.chatfree.app/api/files/2c4f3aea8ba4fb659187a6fb2d531b32a532d9df",
+    "cors": "none (401 responses have no ACAO)",
+    "status": "blocked",
+    "blockedReason": "login-required (Google sign-in only, no guest flow)",
+    "publicInfoEndpoint": "https://music-express.chatfree.app/api/channel/info-public",
+    "notes": "Name/logo/description from public GET /api/channel/info-public (works without login). Description: clips from events, backstage, music news."
+  },
+  {
+    "id": "mesudarim",
+    "name": "טיפים לכלכלה נכונה",
+    "site": "https://mesudarim.chatfree.app/",
+    "category": "economy",
+    "platform": "chat",
+    "platformVariant": "chatfree",
+    "api": {
+      "list": "https://mesudarim.chatfree.app/api/messages?limit=30",
+      "olderParam": "offset=<oldest id - 1>&direction=desc (offset is INCLUSIVE: returns ids <= offset, newest first). direction=asc returns ids >= offset (newer). Optional &topic=<key>.",
+      "auth": null
+    },
+    "shape": {
+      "container": "object {messages:[...], metadata:{scannedRange:{minId,maxId},requestedStart,direction}}",
+      "id": "id (int)",
+      "text": "text (markdown, type='md')",
+      "time": "timestamp (ISO-8601 UTC, e.g. 2026-11-11T07:10:13.487585Z; precision varies)",
+      "edited": "last_edit ('0001-01-01T00:00:00Z' = never)",
+      "media": "text is markdown. Media are inline links: [image-embedded#](URL#WxH) (also seen with leading '!' and with a trailing ':' after WxH, e.g. #800x533:), [video-embedded#](URL[#WxH]), [audio-embedded#](URL), [quote-embedded#](<quotedId>@<quoted text, may contain %29 for ')'>). The #WxH suffix is optional. URLs may be relative (/api/files/<sha1>) - prefix with the site origin. file{url,filename,filetype} exists but was empty in all samples.",
+      "deleted": "deleted (bool)",
+      "reactions": "reactions {emoji:count}",
+      "views": "views",
+      "author": "author (real writer names on some channels), authorPictureUrl (optional)",
+      "other": "isThread, topicIds[], topicId, approvalStatus ('approved')"
+    },
+    "adMarkers": [
+      "isAds (all false in sample)",
+      "columns by named writers ('טור אורח', mortgage advisers) are content, not ads, but often end with the writer's contact/links"
+    ],
+    "breaking": "none",
+    "mediaHosts": [
+      "mesudarim.chatfree.app (/api/files)",
+      "hel1.your-objectstorage.com",
+      "katzr.net (short links)"
+    ],
+    "logo": "https://mesudarim.chatfree.app/api/files/17d60aa460be43db64d78b6169f03d5bf937f753",
+    "cors": "none",
+    "status": "ok",
+    "notes": "Long-form economy/household finance columns (mortgages, pension, savings) with author names in 'author'. Few or no media."
+  },
+  {
+    "id": "ysiva",
+    "name": "שטייגען",
+    "site": "https://ysiva.thechats.click/",
+    "category": "yeshiva",
+    "platform": "chat",
+    "platformVariant": "thechats",
+    "api": {
+      "list": "https://ysiva.thechats.click/api/messages?limit=30",
+      "olderParam": "same as other 'thechats' channels",
+      "auth": {
+        "type": "google-oauth-only (channel setting require_auth=true)",
+        "steps": [
+          "All /api/* (messages, breaking, user-info) answer 401 'User not authenticated' without a session.",
+          "There is NO guest/anonymous login endpoint in the bundle. The only auth endpoints are /auth/google, /auth/login, /auth/logout.",
+          "GET /auth/google -> {googleOauthUrl, googleOauthScope (email+profile), googleClientId}.",
+          "Browser goes to Google OAuth with redirect_uri=<origin>/login; Google returns ?code=...",
+          "App POSTs /auth/login {code} -> server sets its session cookie (name not observed: we did not log in).",
+          "Only route for a reader: a real user signs in with Google once in a browser and the proxy reuses that session cookie. Not done here (no logins allowed)."
+        ]
+      }
+    },
+    "shape": {
+      "note": "not observed (401). Expected same as the 'thechats' variant."
+    },
+    "adMarkers": [
+      "unknown (not observed); expect isAds / is_ads like the rest of the platform"
+    ],
+    "breaking": "unknown",
+    "mediaHosts": [],
+    "logo": "https://ysiva.thechats.click/api/files/6742aa1c17eba050f910f13957998d52aeedc622",
+    "cors": "none (401 responses have no ACAO)",
+    "status": "blocked",
+    "blockedReason": "login-required (Google sign-in only, no guest flow)",
+    "publicInfoEndpoint": null,
+    "notes": "Title/description from the HTML <title> (it contains a raw-escaped meta block): 'שטייגען | כל העדכונים מעולם הישיבות והרחוב החרדי', 'מבית הגיזרה'. Same platform build as hagizra (expect /api/breaking + v3). Even /api/channel/info is 401. og:image /api/files/6742aa1c... (behind login, may 401)."
+  },
+  {
+    "id": "zirat",
+    "name": "זירת החדשות",
+    "site": "https://channel.zirat.news/",
+    "category": "news",
+    "platform": "chat",
+    "platformVariant": "thechats",
+    "api": {
+      "list": "https://channel.zirat.news/api/messages?limit=30",
+      "olderParam": "same as other 'thechats' channels",
+      "auth": {
+        "type": "google-oauth-only (channel setting require_auth=true)",
+        "steps": [
+          "All /api/* (messages, breaking, user-info) answer 401 'User not authenticated' without a session.",
+          "There is NO guest/anonymous login endpoint in the bundle. The only auth endpoints are /auth/google, /auth/login, /auth/logout.",
+          "GET /auth/google -> {googleOauthUrl, googleOauthScope (email+profile), googleClientId}.",
+          "Browser goes to Google OAuth with redirect_uri=<origin>/login; Google returns ?code=...",
+          "App POSTs /auth/login {code} -> server sets its session cookie (name not observed: we did not log in).",
+          "Only route for a reader: a real user signs in with Google once in a browser and the proxy reuses that session cookie. Not done here (no logins allowed)."
+        ]
+      }
+    },
+    "shape": {
+      "note": "not observed (401). Expected same as the 'thechats' variant."
+    },
+    "adMarkers": [
+      "unknown (not observed); expect isAds / is_ads like the rest of the platform"
+    ],
+    "breaking": "unknown",
+    "mediaHosts": [],
+    "logo": "https://channel.zirat.news/api/files/6e47281f525cff203a6fa2e8fc66995afe31f149",
+    "cors": "none (401 responses have no ACAO)",
+    "status": "blocked",
+    "blockedReason": "login-required (Google sign-in only, no guest flow)",
+    "publicInfoEndpoint": "https://channel.zirat.news/api/channel/info",
+    "notes": "GET /api/channel/info is public here: {name:'זירת החדשות', description:'מרכז המידע של הציבור החרדי'}. The same channel is mirrored by authenti.newsupdates.click as source 'זירת החדשות' (see authenti)."
+  },
+  {
+    "id": "avodot-eichut",
+    "name": "עבודות איכות לחרדים",
+    "site": "https://avodot-eichut.chatfree.app/",
+    "category": "economy",
+    "platform": "chat",
+    "platformVariant": "chatfree",
+    "api": {
+      "list": "https://avodot-eichut.chatfree.app/api/messages?limit=30",
+      "olderParam": "same as other 'chatfree' channels",
+      "auth": {
+        "type": "google-oauth-only (channel setting require_auth=true)",
+        "steps": [
+          "All /api/* (messages, breaking, user-info) answer 401 'User not authenticated' without a session.",
+          "There is NO guest/anonymous login endpoint in the bundle. The only auth endpoints are /auth/google, /auth/login, /auth/logout.",
+          "GET /auth/google -> {googleOauthUrl, googleOauthScope (email+profile), googleClientId}.",
+          "Browser goes to Google OAuth with redirect_uri=<origin>/login; Google returns ?code=...",
+          "App POSTs /auth/login {code} -> server sets its session cookie (name not observed: we did not log in).",
+          "Only route for a reader: a real user signs in with Google once in a browser and the proxy reuses that session cookie. Not done here (no logins allowed)."
+        ]
+      }
+    },
+    "shape": {
+      "note": "not observed (401). Expected same as the 'chatfree' variant."
+    },
+    "adMarkers": [
+      "unknown (not observed); expect isAds / is_ads like the rest of the platform"
+    ],
+    "breaking": "unknown",
+    "mediaHosts": [],
+    "logo": "https://hel1.your-objectstorage.com/chatfree-avodot-eichut/0f/c5/0fc5602f27293468f16390b53b17f4f0fdbf4698c87d9478c1d053a00c46aca8",
+    "cors": "none (401 responses have no ACAO)",
+    "status": "blocked",
+    "blockedReason": "login-required (Google sign-in only, no guest flow)",
+    "publicInfoEndpoint": "https://avodot-eichut.chatfree.app/api/channel/info-public",
+    "notes": "Job listings for the Haredi sector (per info-public description). Category: economy & jobs."
+  },
+  {
+    "id": "yedid-nefesh",
+    "name": "ידיד נפש⚡",
+    "site": "https://yedid-nefesh.chatfree.app/ -> https://yedid-nefesh.com/",
+    "category": "torah",
+    "platform": "chat",
+    "platformVariant": "chatfree",
+    "api": {
+      "list": "https://yedid-nefesh.com/api/messages?limit=30",
+      "olderParam": "same as other 'chatfree' channels",
+      "auth": {
+        "type": "google-oauth-only (channel setting require_auth=true)",
+        "steps": [
+          "All /api/* (messages, breaking, user-info) answer 401 'User not authenticated' without a session.",
+          "There is NO guest/anonymous login endpoint in the bundle. The only auth endpoints are /auth/google, /auth/login, /auth/logout.",
+          "GET /auth/google -> {googleOauthUrl, googleOauthScope (email+profile), googleClientId}.",
+          "Browser goes to Google OAuth with redirect_uri=<origin>/login; Google returns ?code=...",
+          "App POSTs /auth/login {code} -> server sets its session cookie (name not observed: we did not log in).",
+          "Only route for a reader: a real user signs in with Google once in a browser and the proxy reuses that session cookie. Not done here (no logins allowed)."
+        ]
+      }
+    },
+    "shape": {
+      "note": "not observed (401). Expected same as the 'chatfree' variant."
+    },
+    "adMarkers": [
+      "unknown (not observed); expect isAds / is_ads like the rest of the platform"
+    ],
+    "breaking": "unknown",
+    "mediaHosts": [],
+    "logo": "https://hel1.your-objectstorage.com/chatfree-yedid-nefsh/20/d8/20d8c22e886213c914c0f366cf8f3bd54f2f2182f19fb12858ddc68aaf111e99",
+    "cors": "none (401 responses have no ACAO)",
+    "status": "blocked",
+    "blockedReason": "login-required (Google sign-in only, no guest flow)",
+    "publicInfoEndpoint": "https://yedid-nefesh.com/api/channel/info-public",
+    "notes": "yedid-nefesh.chatfree.app answers 301 to https://yedid-nefesh.com/ (all paths). Description: daily chizuk/inspiration."
+  },
+  {
+    "id": "moreshet-maran",
+    "name": "מורשת מרן (news)",
+    "site": "https://news.moreshet-maran.com/",
+    "category": "news",
+    "platform": "chat",
+    "platformVariant": "unknown",
+    "api": {
+      "list": "https://news.moreshet-maran.com/api/messages?limit=30",
+      "olderParam": "unknown",
+      "auth": null
+    },
+    "shape": {},
+    "adMarkers": [],
+    "breaking": "unknown",
+    "mediaHosts": [],
+    "logo": null,
+    "cors": "unknown",
+    "status": "blocked",
+    "blockedReason": "cloudflare-challenge",
+    "notes": "Every path tried (/, /api/channel/info, /api/channel/info-public, /api/messages) returns 403 'Just a moment...' with cf-mitigated: challenge. Not bypassed. Category is a guess from the name only."
+  },
+  {
+    "id": "mizrach",
+    "name": "כותל המזרח",
+    "site": "https://mizrach.chatfree.app/",
+    "category": "yeshiva",
+    "platform": "chat",
+    "platformVariant": "chatfree",
+    "api": {
+      "list": "https://mizrach.chatfree.app/api/messages?limit=30",
+      "olderParam": "same as other 'chatfree' channels",
+      "auth": {
+        "type": "google-oauth-only (channel setting require_auth=true)",
+        "steps": [
+          "All /api/* (messages, breaking, user-info) answer 401 'User not authenticated' without a session.",
+          "There is NO guest/anonymous login endpoint in the bundle. The only auth endpoints are /auth/google, /auth/login, /auth/logout.",
+          "GET /auth/google -> {googleOauthUrl, googleOauthScope (email+profile), googleClientId}.",
+          "Browser goes to Google OAuth with redirect_uri=<origin>/login; Google returns ?code=...",
+          "App POSTs /auth/login {code} -> server sets its session cookie (name not observed: we did not log in).",
+          "Only route for a reader: a real user signs in with Google once in a browser and the proxy reuses that session cookie. Not done here (no logins allowed)."
+        ]
+      }
+    },
+    "shape": {
+      "note": "not observed (401). Expected same as the 'chatfree' variant."
+    },
+    "adMarkers": [
+      "unknown (not observed); expect isAds / is_ads like the rest of the platform"
+    ],
+    "breaking": "unknown",
+    "mediaHosts": [],
+    "logo": "https://mizrach.chatfree.app/api/files/fddd839ecaef1b65d4bcc1a1139bf64dc4c5677b",
+    "cors": "none (401 responses have no ACAO)",
+    "status": "blocked",
+    "blockedReason": "login-required (Google sign-in only, no guest flow)",
+    "publicInfoEndpoint": "https://mizrach.chatfree.app/api/channel/info-public",
+    "notes": "Description: 'עדכונים איכותיים מעולם התורה והישיבות' (Torah and yeshiva world updates). Could also fit 'torah'."
+  },
+  {
+    "id": "israelshapira",
+    "name": "מעיינות ונחלים נדירים - ישראל שפירא",
+    "site": "https://channel.israelshapira.com/",
+    "category": "travel",
+    "platform": "chat",
+    "platformVariant": "chatfree",
+    "api": {
+      "list": "https://channel.israelshapira.com/api/messages?limit=30",
+      "olderParam": "same as other 'chatfree' channels",
+      "auth": {
+        "type": "google-oauth-only (channel setting require_auth=true)",
+        "steps": [
+          "All /api/* (messages, breaking, user-info) answer 401 'User not authenticated' without a session.",
+          "There is NO guest/anonymous login endpoint in the bundle. The only auth endpoints are /auth/google, /auth/login, /auth/logout.",
+          "GET /auth/google -> {googleOauthUrl, googleOauthScope (email+profile), googleClientId}.",
+          "Browser goes to Google OAuth with redirect_uri=<origin>/login; Google returns ?code=...",
+          "App POSTs /auth/login {code} -> server sets its session cookie (name not observed: we did not log in).",
+          "Only route for a reader: a real user signs in with Google once in a browser and the proxy reuses that session cookie. Not done here (no logins allowed)."
+        ]
+      }
+    },
+    "shape": {
+      "note": "not observed (401). Expected same as the 'chatfree' variant."
+    },
+    "adMarkers": [
+      "unknown (not observed); expect isAds / is_ads like the rest of the platform"
+    ],
+    "breaking": "unknown",
+    "mediaHosts": [],
+    "logo": "https://channel.israelshapira.com/api/files/6fb78d91ede3d59ff14c838e3457eb1544e7befe",
+    "cors": "none (401 responses have no ACAO)",
+    "status": "blocked",
+    "blockedReason": "login-required (Google sign-in only, no guest flow)",
+    "publicInfoEndpoint": "https://channel.israelshapira.com/api/channel/info-public",
+    "notes": "Springs and streams by tour guide Israel Shapira."
+  },
+  {
+    "id": "myshemesh",
+    "name": "מיין שמש my-shemesh",
+    "site": "https://myshemesh.co.il/",
+    "category": "news",
+    "platform": "chat",
+    "platformVariant": "chatfree",
+    "api": {
+      "list": "https://myshemesh.co.il/api/messages?limit=30",
+      "olderParam": "offset=<oldest id - 1>&direction=desc (offset is INCLUSIVE: returns ids <= offset, newest first). direction=asc returns ids >= offset (newer). Optional &topic=<key>.",
+      "auth": null
+    },
+    "shape": {
+      "container": "object {messages:[...], metadata:{scannedRange:{minId,maxId},requestedStart,direction}}",
+      "id": "id (int)",
+      "text": "text (markdown, type='md')",
+      "time": "timestamp (ISO-8601 UTC, e.g. 2026-11-11T07:10:13.487585Z; precision varies)",
+      "edited": "last_edit ('0001-01-01T00:00:00Z' = never)",
+      "media": "text is markdown. Media are inline links: [image-embedded#](URL#WxH) (also seen with leading '!' and with a trailing ':' after WxH, e.g. #800x533:), [video-embedded#](URL[#WxH]), [audio-embedded#](URL), [quote-embedded#](<quotedId>@<quoted text, may contain %29 for ')'>). The #WxH suffix is optional. URLs may be relative (/api/files/<sha1>) - prefix with the site origin. file{url,filename,filetype} exists but was empty in all samples.",
+      "deleted": "deleted (bool)",
+      "reactions": "reactions {emoji:count}",
+      "views": "views",
+      "author": "author (real writer names on some channels), authorPictureUrl (optional)",
+      "other": "isThread, topicIds[], topicId, approvalStatus ('approved')"
+    },
+    "adMarkers": [
+      "isAds: true (in sample it was the weekly Shabbat-times image, i.e. sponsored)"
+    ],
+    "breaking": "none",
+    "mediaHosts": [
+      "hel1.your-objectstorage.com",
+      "myshemesh.co.il (/api/files)"
+    ],
+    "logo": "https://myshemesh.co.il/api/files/27ae34f9175316e16fcbb9bc47a3deb62d2ab3c9",
+    "cors": "none",
+    "status": "ok",
+    "notes": "Local news for Beit Shemesh (served by nginx, not Cloudflare). author = writer name ('זאביק', 'דסק'). topicIds used (e.g. [3])."
+  },
+  {
+    "id": "myali-mutagim",
+    "name": "My ali- מותגים מוסתרים",
+    "site": "https://myali-mutagim.chatfree.app/",
+    "category": "deals",
+    "platform": "chat",
+    "platformVariant": "chatfree",
+    "api": {
+      "list": "https://myali-mutagim.chatfree.app/api/messages?limit=30",
+      "olderParam": "offset=<oldest id - 1>&direction=desc (offset is INCLUSIVE: returns ids <= offset, newest first). direction=asc returns ids >= offset (newer). Optional &topic=<key>.",
+      "auth": null
+    },
+    "shape": {
+      "container": "object {messages:[...], metadata:{scannedRange:{minId,maxId},requestedStart,direction}}",
+      "id": "id (int)",
+      "text": "text (markdown, type='md')",
+      "time": "timestamp (ISO-8601 UTC, e.g. 2026-11-11T07:10:13.487585Z; precision varies)",
+      "edited": "last_edit ('0001-01-01T00:00:00Z' = never)",
+      "media": "text is markdown. Media are inline links: [image-embedded#](URL#WxH) (also seen with leading '!' and with a trailing ':' after WxH, e.g. #800x533:), [video-embedded#](URL[#WxH]), [audio-embedded#](URL), [quote-embedded#](<quotedId>@<quoted text, may contain %29 for ')'>). The #WxH suffix is optional. URLs may be relative (/api/files/<sha1>) - prefix with the site origin. file{url,filename,filetype} exists but was empty in all samples.",
+      "deleted": "deleted (bool)",
+      "reactions": "reactions {emoji:count}",
+      "views": "views",
+      "author": "author (real writer names on some channels), authorPictureUrl (optional)",
+      "other": "isThread, topicIds[], topicId, approvalStatus ('approved')"
+    },
+    "adMarkers": [
+      "isAds (false in sample)",
+      "every post is an affiliate link (s.click.aliexpress.com, s.flylinking.com) - the whole channel is commercial",
+      "self-promo posts asking to 'add to cart' (בשבילכן זה רק קליק קטן...)"
+    ],
+    "breaking": "none",
+    "mediaHosts": [
+      "hel1.your-objectstorage.com",
+      "s.click.aliexpress.com",
+      "s.flylinking.com"
+    ],
+    "logo": "https://myali-mutagim.chatfree.app/api/files/93e7cfc05dfbb13a280f72a5e689cc7763321a15",
+    "cors": "none",
+    "status": "ok",
+    "notes": "AliExpress 'hidden brand' (replica) deals. Footer links to the sister channel myali.chatfree.app. Text has raw '<br>' inside links."
+  },
+  {
+    "id": "myali",
+    "name": "My ali- קופונים וקישורים לאלי אקספרס",
+    "site": "https://myali.chatfree.app/",
+    "category": "deals",
+    "platform": "chat",
+    "platformVariant": "chatfree",
+    "api": {
+      "list": "https://myali.chatfree.app/api/messages?limit=30",
+      "olderParam": "offset=<oldest id - 1>&direction=desc (offset is INCLUSIVE: returns ids <= offset, newest first). direction=asc returns ids >= offset (newer). Optional &topic=<key>.",
+      "auth": null
+    },
+    "shape": {
+      "container": "object {messages:[...], metadata:{scannedRange:{minId,maxId},requestedStart,direction}}",
+      "id": "id (int)",
+      "text": "text (markdown, type='md')",
+      "time": "timestamp (ISO-8601 UTC, e.g. 2026-11-11T07:10:13.487585Z; precision varies)",
+      "edited": "last_edit ('0001-01-01T00:00:00Z' = never)",
+      "media": "text is markdown. Media are inline links: [image-embedded#](URL#WxH) (also seen with leading '!' and with a trailing ':' after WxH, e.g. #800x533:), [video-embedded#](URL[#WxH]), [audio-embedded#](URL), [quote-embedded#](<quotedId>@<quoted text, may contain %29 for ')'>). The #WxH suffix is optional. URLs may be relative (/api/files/<sha1>) - prefix with the site origin. file{url,filename,filetype} exists but was empty in all samples.",
+      "deleted": "deleted (bool)",
+      "reactions": "reactions {emoji:count}",
+      "views": "views",
+      "author": "author (real writer names on some channels), authorPictureUrl (optional)",
+      "other": "isThread, topicIds[], topicId, approvalStatus ('approved')"
+    },
+    "adMarkers": [
+      "isAds: true (2 of 30 in sample, product posts)",
+      "affiliate links in almost every post (s.click.aliexpress.com)"
+    ],
+    "breaking": "none",
+    "mediaHosts": [
+      "hel1.your-objectstorage.com",
+      "s.click.aliexpress.com"
+    ],
+    "logo": "https://myali.chatfree.app/api/files/fe1602faec13f43853b450f082b1223bb794d390",
+    "cors": "none",
+    "status": "ok",
+    "notes": "AliExpress coupons and product links. Same owner as myali-mutagim (many posts duplicated)."
+  },
+  {
+    "id": "aliexpress-bazaar",
+    "name": "בזאר המציאות",
+    "site": "https://aliexpress.thechats.click/",
+    "category": "deals",
+    "platform": "chat",
+    "platformVariant": "thechats",
+    "api": {
+      "list": "https://aliexpress.thechats.click/api/messages?limit=30",
+      "olderParam": "offset=<oldest id seen> (exclusive: returns ids < offset, newest first)",
+      "auth": null
+    },
+    "shape": {
+      "container": "bare JSON array",
+      "id": "id (int)",
+      "text": "text (markdown, type='md')",
+      "time": "timestamp (ISO-8601 UTC, up to ns precision, e.g. 2026-11-11T10:14:33.947568669Z)",
+      "edited": "last_edit ('0001-01-01T00:00:00Z' = never)",
+      "media": "text is markdown. Media are inline links: [image-embedded#](URL#WxH) (also seen with leading '!' and with a trailing ':' after WxH, e.g. #800x533:), [video-embedded#](URL[#WxH]), [audio-embedded#](URL), [quote-embedded#](<quotedId>@<quoted text, may contain %29 for ')'>). The #WxH suffix is optional. URLs may be relative (/api/files/<sha1>) - prefix with the site origin. file{url,filename,filetype} exists but was empty in all samples.",
+      "deleted": "deleted (bool) - skip when true",
+      "reactions": "reactions {emoji:count}",
+      "views": "views",
+      "author": "author ('Anonymous' on most channels)"
+    },
+    "adMarkers": [
+      "is_ads",
+      "is_advertisement (both present, both false in sample)",
+      "every post is an AliExpress deal with price + link"
+    ],
+    "breaking": "none (no /api/breaking on this build)",
+    "mediaHosts": [
+      "crispy.db-ya.com",
+      "ae-pic-a1.aliexpress-media.com",
+      "cdn.thechats.click",
+      "www.aliexpress.com",
+      "fr.aliexpress.com",
+      "star.aliexpress.com"
+    ],
+    "logo": "https://cdn.thechats.click/54/67/5467d189e25c39f14108f0547288e8727733262087cc4156e809a2e978a73307.png",
+    "cors": "none",
+    "status": "ok",
+    "notes": "Bare array; also has locked_emojis per message. limit=N returns N+1 items. Image embeds have no #WxH."
+  },
+  {
+    "id": "hakav-hacharedi",
+    "name": "הקו החרדי",
+    "site": "https://channel.hakavhacharedi.com/",
+    "category": "news",
+    "platform": "chat",
+    "platformVariant": "thechats",
+    "api": {
+      "list": "https://channel.hakavhacharedi.com/api/messages?limit=30",
+      "olderParam": "offset=<oldest id seen> (exclusive: returns ids < offset, newest first)",
+      "auth": null
+    },
+    "shape": {
+      "container": "bare JSON array",
+      "id": "id (int)",
+      "text": "text (markdown, type='md')",
+      "time": "timestamp (ISO-8601 UTC, up to ns precision, e.g. 2026-11-11T10:14:33.947568669Z)",
+      "edited": "last_edit ('0001-01-01T00:00:00Z' = never)",
+      "media": "text is markdown. Media are inline links: [image-embedded#](URL#WxH) (also seen with leading '!' and with a trailing ':' after WxH, e.g. #800x533:), [video-embedded#](URL[#WxH]), [audio-embedded#](URL), [quote-embedded#](<quotedId>@<quoted text, may contain %29 for ')'>). The #WxH suffix is optional. URLs may be relative (/api/files/<sha1>) - prefix with the site origin. file{url,filename,filetype} exists but was empty in all samples.",
+      "deleted": "deleted (bool) - skip when true",
+      "reactions": "reactions {emoji:count}",
+      "views": "views",
+      "author": "author ('Anonymous' on most channels)"
+    },
+    "adMarkers": [
+      "is_ads: true (3 of 31 in sample: gas prices, municipal campaign, raffle)",
+      "channel description itself warns ads are mixed in"
+    ],
+    "breaking": "none (no /api/breaking on this build)",
+    "mediaHosts": [
+      "channel.hakavhacharedi.com (/api/files, relative URLs)"
+    ],
+    "logo": "https://channel.hakavhacharedi.com/api/files/9896d832685ff7a12bea6999667309c24f6e4f86",
+    "cors": "none",
+    "status": "ok",
+    "notes": "Media links are RELATIVE (/api/files/<sha1>) - prefix the origin; files load without auth. No Cloudflare. limit=N returns N+1 items. Also mirrored by authenti as source 'הקו החרדי'."
+  },
+  {
+    "id": "h-news",
+    "name": "המוקד",
+    "site": "https://channel.h-news.co.il/",
+    "category": "news",
+    "platform": "chat",
+    "platformVariant": "thechats",
+    "api": {
+      "list": "https://channel.h-news.co.il/api/messages?limit=30",
+      "olderParam": "same as other 'thechats' channels",
+      "auth": {
+        "type": "google-oauth-only (channel setting require_auth=true)",
+        "steps": [
+          "All /api/* (messages, breaking, user-info) answer 401 'User not authenticated' without a session.",
+          "There is NO guest/anonymous login endpoint in the bundle. The only auth endpoints are /auth/google, /auth/login, /auth/logout.",
+          "GET /auth/google -> {googleOauthUrl, googleOauthScope (email+profile), googleClientId}.",
+          "Browser goes to Google OAuth with redirect_uri=<origin>/login; Google returns ?code=...",
+          "App POSTs /auth/login {code} -> server sets its session cookie (name not observed: we did not log in).",
+          "Only route for a reader: a real user signs in with Google once in a browser and the proxy reuses that session cookie. Not done here (no logins allowed)."
+        ]
+      }
+    },
+    "shape": {
+      "note": "not observed (401). Expected same as the 'thechats' variant."
+    },
+    "adMarkers": [
+      "unknown (not observed); expect isAds / is_ads like the rest of the platform"
+    ],
+    "breaking": "unknown",
+    "mediaHosts": [],
+    "logo": "https://channel.h-news.co.il/api/files/6fcfdaa2e731121496036be32b4174d06554d680",
+    "cors": "none (401 responses have no ACAO)",
+    "status": "blocked",
+    "blockedReason": "login-required (Google sign-in only, no guest flow)",
+    "publicInfoEndpoint": "https://channel.h-news.co.il/api/channel/info",
+    "notes": "GET /api/channel/info is public: {name:' המוקד', description:'רשת \"חדשות המוקד\"'}. The same channel is mirrored by authenti.newsupdates.click as source 'המוקד' (open, no login)."
+  },
+  {
+    "id": "authenti",
+    "name": "אותנטי ניוז",
+    "site": "https://authenti.newsupdates.click/",
+    "category": "news",
+    "platform": "authenti",
+    "api": {
+      "list": "https://authenti.newsupdates.click/api/get_messages_optimized.php?source=ALL_CHANNELS&last_id=0",
+      "olderParam": "before_id=<oldest id> (returns the 50 items before it, ASCENDING). Newer: last_id=<newest id>. limit is ignored (always 50). source=<Hebrew channel name, URL-encoded> for one source; list of sources: GET /api/get_channels_optimized.php",
+      "alt": "Chat-compatible endpoint also works: GET /api/messages?limit=30[&offset=<id>] (bare array, offset exclusive, ACAO:*), different id space (~480k vs ~1.1M).",
+      "auth": null
+    },
+    "shape": {
+      "container": "native: {success, messages[50 ascending], source, is_admin}",
+      "id": "id",
+      "text": "title = source channel name; description = body (plain text, often prefixed '<source>: ')",
+      "time": "created_at ('YYYY-MM-DD HH:MM:SS' Israel local time, no zone); formatted_time/formatted_date also given",
+      "media": "image_url (absolute https://newsupdates.click/t/images/...jpg or ''); has_video/approved_video/has_pending_video; video via /api/video_viewer.php?id=<video_id>",
+      "breaking": "is_breaking (0/1; all 0 in sample)",
+      "other": "source, category ('ביטחוני','נעייס','פוליטיקה'), likes/dislikes/laughs/vomits, admin_only",
+      "compat_endpoint_shape": "/api/messages: {id, type:'md', text (markdown + raw HTML like <audio src=\"/uploads/videos/N.preview.mp3\"> and ![](url)), author = source name, channel, category, send_to, timestamp (ISO UTC ns), is_ads, video_ids, has_pending_video, pending_video_audio}"
+    },
+    "adMarkers": [
+      "is_ads (compat endpoint; all false in sample)",
+      "native endpoint has no ad flag",
+      "site ads come from https://newsupdates.click/ads/ads_links_config.json (overlay banners, not feed items)"
+    ],
+    "breaking": "is_breaking on native items (0/1). Not used in app.js UI as far as seen.",
+    "mediaHosts": [
+      "newsupdates.click",
+      "authenti.newsupdates.click"
+    ],
+    "logo": "https://authenti.newsupdates.click/assets/images/og-image.jpg",
+    "cors": "compat /api/messages: Access-Control-Allow-Origin: *; native .php endpoints: none",
+    "status": "ok",
+    "notes": "Not the chat platform: a PHP aggregator (sets PHPSESSID + user_sess cookies, not required for reading). It re-posts ~52 Telegram/WhatsApp news sources (incl. 'זירת החדשות', 'המוקד', 'הקו החרדי', 'הפרגוד', Amit Segal etc.). Heavy volume (~60k items). Because it mirrors zirat and h-news (both login-gated on their own sites), source=זירת החדשות / source=המוקד is an open alternative for them."
+  },
+  {
+    "id": "yeshiva-zucher",
+    "name": "ישיב'ע זוכע'ר",
+    "site": "https://yeshiva-zucher.chatfree.app/",
+    "category": "yeshiva",
+    "platform": "chat",
+    "platformVariant": "chatfree",
+    "api": {
+      "list": "https://yeshiva-zucher.chatfree.app/api/messages?limit=30",
+      "olderParam": "offset=<oldest id - 1>&direction=desc (offset is INCLUSIVE: returns ids <= offset, newest first). direction=asc returns ids >= offset (newer). Optional &topic=<key>.",
+      "auth": null
+    },
+    "shape": {
+      "container": "object {messages:[...], metadata:{scannedRange:{minId,maxId},requestedStart,direction}}",
+      "id": "id (int)",
+      "text": "text (markdown, type='md')",
+      "time": "timestamp (ISO-8601 UTC, e.g. 2026-11-11T07:10:13.487585Z; precision varies)",
+      "edited": "last_edit ('0001-01-01T00:00:00Z' = never)",
+      "media": "text is markdown. Media are inline links: [image-embedded#](URL#WxH) (also seen with leading '!' and with a trailing ':' after WxH, e.g. #800x533:), [video-embedded#](URL[#WxH]), [audio-embedded#](URL), [quote-embedded#](<quotedId>@<quoted text, may contain %29 for ')'>). The #WxH suffix is optional. URLs may be relative (/api/files/<sha1>) - prefix with the site origin. file{url,filename,filetype} exists but was empty in all samples.",
+      "deleted": "deleted (bool)",
+      "reactions": "reactions {emoji:count}",
+      "views": "views",
+      "author": "author (real writer names on some channels), authorPictureUrl (optional)",
+      "other": "isThread, topicIds[], topicId, approvalStatus ('approved')"
+    },
+    "adMarkers": [
+      "isAds (all false in sample)",
+      "footer promo of their phone line ('לשמיעת הודעות חייגו') - channel self-promo, not an ad"
+    ],
+    "breaking": "none",
+    "mediaHosts": [
+      "hel1.your-objectstorage.com"
+    ],
+    "logo": "https://hel1.your-objectstorage.com/chatfree-yeshiva-zucher/b7/dd/b7ddd81588ce2872a1c8116b7b0206c786f90408cd37c455d05a61d09e874cc1",
+    "cors": "none",
+    "status": "ok",
+    "notes": "Yeshiva-world scoops. Server sets a 'channel_guest' cookie on /api/messages - only for counting guest views, not needed."
+  },
+  {
+    "id": "emess",
+    "name": "אמס אונליין",
+    "site": "https://www.emess.co.il/online?native",
+    "category": "news",
+    "platform": "emess",
+    "api": {
+      "list": "https://www.emess.co.il/Online/Feed/0",
+      "olderParam": "page=<n> (n=1,2,... ~50 items each, newest first; page omitted = latest). /Online/Feed/<feedId> for one section; &user=<from> for one writer; &item=<id> to centre on a post.",
+      "auth": null
+    },
+    "shape": {
+      "container": "{status:1, feed:[...50], likes:{}, feeds:[{id,name,image,visible,last_date}]}",
+      "id": "id",
+      "text": "content (plain text with \\r\\n; client converts _x_ to italics and URLs to links)",
+      "time": "date (ISO local Israel time without zone, e.g. 2026-11-11T12:25:05)",
+      "media": "type: 1=text, 2=image, 3=video. image = numeric picture id -> https://kcm.fm/upload/pictures/<floor(id/1000)>/<id>.jpg (served as webp/png). video = HLS URL https://media.kcm.fm/hls/.../master.m3u8; w/h = dimensions; iframe (embed) may appear",
+      "author": "user_name, user_image (picture id, same URL rule), from (writer id)",
+      "section": "feed (id into feeds[]: 1 אונליין, 7 כלכלה, 4 מיוזיק, 2 חרדים, 3 תורה, 5 מעניין, 10 תמונת היום, 12 רכב, 15 העדכונים, 11 הקול החדש, 14 החלאק'ס, 13 חידון ההלכה)",
+      "other": "rank {'1'..'4': count} = reactions (👍 כן, 👎 לא, 😄, 😢), replies (count), parent, home, visible"
+    },
+    "adMarkers": [
+      "no ad flag and no ads seen in 150 feed items",
+      "page ads are injected by clicka (ultra.clicka1.co.il loader); ?native turns the ad slot off"
+    ],
+    "breaking": "none in the feed. Page 0 may start with an older pinned/featured item (e.g. id 78838 from Oct with home=1) - sort by date or id.",
+    "mediaHosts": [
+      "kcm.fm",
+      "media.kcm.fm",
+      "www.emess.co.il"
+    ],
+    "logo": "https://www.emess.co.il/logo.svg",
+    "cors": "none",
+    "status": "ok",
+    "notes": "Nuxt site; the route /online/:feed loads CF4J4RML.js which calls /Online/Feed/<feed>?item=&page=&user=&_live=. Likes: POST /Online/Like (not needed). Live push uses a WebSocket hub (not needed - poll Feed/0). Mixed content: news desk + music + economy + Torah sections."
+  },
+  {
+    "id": "hmnews",
+    "name": "המחדש - מבזקים",
+    "site": "https://hm-news.co.il/news-flash/",
+    "category": "news",
+    "platform": "hmnews",
+    "api": {
+      "list": "https://hm-news.co.il/wp-json/wp/v2/news-flash?per_page=20&acf_format=standard&_fields=id,date,date_gmt,link,title,content,acf",
+      "olderParam": "page=<n> (X-WP-TotalPages header; Link rel=next) or before=<ISO date> for stable paging",
+      "auth": null
+    },
+    "shape": {
+      "container": "WordPress REST array",
+      "id": "id",
+      "text": "title.rendered (the whole flash text, HTML entities like &quot; and WhatsApp-style *bold*); content.rendered is usually empty",
+      "time": "date (Israel local) / date_gmt (UTC), 'YYYY-MM-DDTHH:MM:SS'",
+      "media": "acf.image / acf.video. With acf_format=standard they are objects {url, mime_type, width, height, ...}; without it they are media ids (resolve via /wp-json/wp/v2/media?include=<ids>&_fields=id,source_url,mime_type). acf.video-slider, acf.add_video, acf.hide_image also exist. featured_media always 0.",
+      "author": "acf.change_author_name ('מערכת המחדש' = editorial)",
+      "link": "link (https://hm-news.co.il/news-flash/<id>/)"
+    },
+    "adMarkers": [
+      "acf.change_author_name == 'המחדש חדשות' -> sponsored (6 of 100 sampled: investment ads, loans, fundraising campaigns); editorial items use 'מערכת המחדש'",
+      "text pattern: many lines wrapped in *...* with 👈/✅ bullets and a call-to-action (הירשמו / לפתיחה / 📲)"
+    ],
+    "breaking": "none (the whole post type is 'news-flash')",
+    "mediaHosts": [
+      "hm-news.co.il"
+    ],
+    "logo": "https://hm-news.co.il/wp-content/uploads/2026/06/cropped-hm-icon-1.png",
+    "cors": "Access-Control-Allow-Origin reflects the request Origin (open)",
+    "status": "ok",
+    "notes": "X-WP-Total ~70k. The site's own infinite scroll uses admin-ajax.php action=hm_load_nf_archive with a nonce and returns HTML - the REST route is cleaner. /wp-json/news_flash/v1 is only an add (POST) route. App routes /wp-json/app/v1/newsletter-news-flash exist too (not needed)."
+  }
+]

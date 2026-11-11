@@ -1,0 +1,594 @@
+<# :
+@echo off
+rem HaFeed for the Windows widgets board - single-file installer.
+rem No argument: the GUI (runs as the user). With an argument: one elevated policy step, called by the GUI.
+set "HZ_SELF=%~f0"
+set "HZ_MODE=%~1"
+if "%~1"=="" goto gui
+powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "iex ([IO.File]::ReadAllText($env:HZ_SELF,[Text.Encoding]::UTF8))"
+exit /b %errorlevel%
+:gui
+start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "iex ([IO.File]::ReadAllText($env:HZ_SELF,[Text.Encoding]::UTF8))"
+exit /b
+#>
+# ====================================================================================
+#  הפיד בלוח הווידג'טים - מתקין בקובץ אחד.
+#  1. פותח פידים של צד שלישי במחשב (שינוי בקובץ מדיניות האזור, עם גיבוי), ומוסיף את תעודת
+#     החתימה של החבילה ל-TrustedPeople של המחשב. דורש מנהל, בבקשה אחת.
+#  2. מתקין את Windows App Runtime 1.6 אם חסר.
+#  3. מתקין את חבילת הפיד (MSIX חתום בתעודה עצמית). חבילה לא חתומה לא יכולה להריץ exe.
+# ====================================================================================
+$ErrorActionPreference = 'Stop'
+$Self    = $env:HZ_SELF
+$Version = '{{VERSION}}'
+$PkgName = 'HagizraFeed'
+$CertThumb = '{{CERT}}'
+$Policy  = if ($env:HZ_POLICY) { $env:HZ_POLICY } else { "$env:windir\System32\IntegratedServicesRegionPolicySet.json" }
+$LogFile = "$env:ProgramData\HagizraFeed\setup.log"
+
+function Write-Log($m) {
+    try { New-Item -ItemType Directory -Force (Split-Path $LogFile) | Out-Null
+          Add-Content -Path $LogFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$env:USERNAME] $m" -Encoding UTF8 } catch { }
+}
+
+function Get-Data($tag) {
+    $m = [regex]::Match([IO.File]::ReadAllText($Self), "(?m)^$tag`:([A-Za-z0-9+/=]+)\s*$")
+    if (-not $m.Success) { throw "חסר מידע ($tag) בקובץ ההתקנה" }
+    [Convert]::FromBase64String($m.Groups[1].Value)
+}
+function Test-Trusted { Test-Path "Cert:\LocalMachine\TrustedPeople\$CertThumb" }
+
+# ---------- מדיניות האזור ----------
+# הכללים שמיקרוסופט פותחת רק באזור הכלכלי האירופי.
+$Rules = '16d2b50e-fa7c-4bb1-ab17-01d766530b3b',   # Third party feed is shown in Widgets
+         '92ca7dcf-f422-4a4b-892e-7883a3ca8d70',   # First party Widget feed can be disabled
+         '3d0c862c-bfd8-4350-af2f-4c42884cc3a8'    # Use default web protocol for Widget links (קישורים בדפדפן ברירת המחדל, לא ב-Edge)
+
+function Get-RegionCode {
+    try {
+        Add-Type -Namespace HZ -Name Geo -MemberDefinition '[DllImport("kernel32.dll", CharSet=CharSet.Unicode)] public static extern int GetGeoInfoW(int id, int type, System.Text.StringBuilder data, int len, ushort lang);' -ErrorAction SilentlyContinue
+        $id = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Control Panel\DeviceRegion').DeviceRegion
+        $sb = [Text.StringBuilder]::new(8)
+        if ([HZ.Geo]::GetGeoInfoW([int]$id, 4, $sb, 8, 0) -gt 0 -and $sb.ToString() -match '^[A-Z]{2}$') { return $sb.ToString() }   # 4 = GEO_ISO2
+    } catch { }
+    'IL'
+}
+
+# מוסיף את קוד האזור לרשימת ה-enabled של כל כלל. לא נוגע בשום דבר אחר בקובץ.
+function Get-PatchedPolicy([string]$Text, [string]$Cc) {
+    foreach ($g in $Rules) {
+        $i = $Text.IndexOf("{$g}", [StringComparison]::OrdinalIgnoreCase)
+        if ($i -lt 0) { throw "הכלל $g לא נמצא בקובץ המדיניות" }
+        $j = $Text.IndexOf('"enabled"', $i)
+        $n = $Text.IndexOf('"guid"', $i + 1)
+        if ($j -lt 0 -or ($n -ge 0 -and $n -lt $j)) { throw "מבנה לא מוכר בכלל $g" }
+        $k = $Text.IndexOf('[', $j); $e = $Text.IndexOf(']', $k)
+        if ($Text.Substring($k, $e - $k) -notmatch "`"$Cc`"") { $Text = $Text.Insert($k + 1, "`"$Cc`", ") }
+    }
+    $null = $Text | ConvertFrom-Json   # לעולם לא לכתוב קובץ מערכת שבור
+    $Text
+}
+
+function Read-Policy { $b = [IO.File]::ReadAllBytes($Policy); @{ Bom = ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF); Text = [IO.File]::ReadAllText($Policy) } }
+function Test-PolicyOpen { try { $p = Read-Policy; (Get-PatchedPolicy $p.Text (Get-RegionCode)) -eq $p.Text } catch { $false } }
+
+function Unlock-File($f) {
+    if (-not (Test-Path $f)) { return }
+    $ErrorActionPreference = 'Continue'   # הפלט של takeown ו-icacls הוא לא שגיאה
+    takeown.exe /f $f /a 2>&1 | Out-Null
+    icacls.exe $f /grant '*S-1-5-32-544:F' 2>&1 | Out-Null
+}
+# ponytail: מחזירים רק את הבעלות ל-TrustedInstaller. הרשאת המנהלים שנוספה נשארת על הקובץ.
+function Lock-File($f) { $ErrorActionPreference = 'Continue'; if (Test-Path $f) { icacls.exe $f /setowner 'NT SERVICE\TrustedInstaller' 2>&1 | Out-Null } }
+
+# קודי יציאה: 0 שונה, 1 כבר פתוח, 2 שוחזר, 3 אין מה לשחזר, 10 כשל.
+function Invoke-PolicyOpen {
+    $cc = Get-RegionCode
+    $p = Read-Policy
+    $new = Get-PatchedPolicy $p.Text $cc
+    if ($new -eq $p.Text) { Write-Log "policy already open for $cc"; return 1 }
+    $orig = "$Policy.orig"
+    Unlock-File $Policy; Unlock-File $orig
+    # תוקן כבר בעבר (גרסה קודמת של המתקין): הגיבוי הקיים הוא המקור של אותו תיקון, ונשאר.
+    $keep = (Test-Path $orig) -and $(try { (Get-PatchedPolicy ([IO.File]::ReadAllText($orig)) $cc) -eq $new } catch { $false })
+    if ($keep) {
+        $old = "$Policy.hagizra-old"
+        if (Test-Path $old) { Unlock-File $old; Remove-Item $old -Force -ErrorAction SilentlyContinue }
+        Rename-Item $Policy (Split-Path $old -Leaf)
+    } else {
+        if (Test-Path $orig) { Remove-Item $orig -Force }      # גיבוי ישן מלפני עדכון של Windows
+        Rename-Item $Policy (Split-Path $orig -Leaf)           # הקובץ בשימוש: שינוי שם עובד, כתיבה במקום לא
+    }
+    [IO.File]::WriteAllText($Policy, $new, [Text.UTF8Encoding]::new($p.Bom))
+    Lock-File $Policy; Lock-File $orig
+    if ($keep) { Remove-Item "$Policy.hagizra-old" -Force -ErrorAction SilentlyContinue }   # בשימוש עד הפעלה מחדש: נשאר, לא מזיק
+    Write-Log "policy opened for $cc (backup: $orig, kept: $keep)"
+    0
+}
+
+function Invoke-PolicyRestore {
+    $orig = "$Policy.orig"
+    if (-not (Test-Path $orig)) { Write-Log 'policy restore: no backup'; return 3 }
+    Unlock-File $Policy; Unlock-File $orig
+    if (-not (Test-PolicyOpen)) {
+        # Windows כבר החליף את הקובץ בגרסה חדשה. הגיבוי ישן יותר ממנו.
+        Remove-Item $orig -Force; Write-Log 'policy restore: file already stock, dropped old backup'; return 3
+    }
+    $old = "$Policy.hagizra-old"
+    if (Test-Path $old) { Unlock-File $old; Remove-Item $old -Force -ErrorAction SilentlyContinue }
+    Rename-Item $Policy (Split-Path $old -Leaf)
+    Rename-Item $orig (Split-Path $Policy -Leaf)
+    Lock-File $Policy
+    Remove-Item $old -Force -ErrorAction SilentlyContinue      # עדיין בשימוש עד הפעלה מחדש: נשאר, לא מזיק
+    Write-Log 'policy restored from backup'
+    2
+}
+
+# ---------- תעודת החתימה ----------
+function Install-Cert {
+    if (Test-Trusted) { return }
+    $cer = Join-Path $env:TEMP 'hagizra-feed.cer'
+    [IO.File]::WriteAllBytes($cer, (Get-Data 'CERT'))
+    certutil.exe -f -addstore TrustedPeople $cer | Out-Null; $failed = $LASTEXITCODE
+    Remove-Item $cer -Force -ErrorAction SilentlyContinue
+    if ($failed -or -not (Test-Trusted)) { throw "certutil addstore failed ($failed)" }
+    Write-Log "certificate $CertThumb trusted"
+}
+function Remove-Cert {
+    if (-not (Test-Trusted)) { return }
+    certutil.exe -delstore TrustedPeople $CertThumb | Out-Null
+    Write-Log "certificate $CertThumb removed"
+}
+
+# ---------- מצב מנהל: צעד אחד ויציאה ----------
+if ($env:HZ_MODE) {
+    try {
+        $code = switch ($env:HZ_MODE) {
+            'setup'  { Install-Cert; Invoke-PolicyOpen }
+            'remove' { Remove-Cert; Invoke-PolicyRestore }
+            default  { 10 }
+        }
+    } catch { Write-Log "$($env:HZ_MODE) failed: $_"; $code = 10 }
+    exit $code
+}
+
+# ====================================================================================
+#  ממשק
+# ====================================================================================
+function Get-Runtime { Get-AppxPackage Microsoft.WindowsAppRuntime.1.6 -ErrorAction SilentlyContinue | Where-Object { $_.Architecture -eq 'X64' -and [version]$_.Version -ge [version]'6000.519.329.0' } | Select-Object -First 1 }
+
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+
+$build = [Environment]::OSVersion.Version.Build
+$light = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name AppsUseLightTheme -ErrorAction SilentlyContinue).AppsUseLightTheme -ne 0
+$mica  = $build -ge 22621
+# צבעי הלוגו של הפיד: כחול #00609C ואדום #FF4D4F.
+$T = if ($light) { @{
+    FG='#1A1A1A'; FG2='#616161'; WINBG='#F3F3F3'; CARD='#C8FFFFFF'; CARDBORDER='#14000000'; FOOTER='#08000000'
+    CTRL='#C8FFFFFF'; CTRLBORDER='#1F000000'; ACCENT='#00609C'; ACCENTSOFT='#1A00609C'; ONACCENT='#FFFFFF'
+    RED='#E5484D'; GOOD='#0F7B0F'; BAD='#C42B1C'; TRACK='#1F000000' }
+} else { @{
+    FG='#FFFFFF'; FG2='#C5C5C5'; WINBG='#202020'; CARD='#0FFFFFFF'; CARDBORDER='#1AFFFFFF'; FOOTER='#1F000000'
+    CTRL='#12FFFFFF'; CTRLBORDER='#1AFFFFFF'; ACCENT='#4FA8E8'; ACCENTSOFT='#264FA8E8'; ONACCENT='#00121F'
+    RED='#FF5A50'; GOOD='#6CCB5F'; BAD='#FF99A4'; TRACK='#26FFFFFF' }
+}
+if ($mica) { $T.WINBG = 'Transparent' }
+
+$xaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="הפיד - התקנה" Width="640" Height="620" ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterScreen" FlowDirection="RightToLeft" UseLayoutRounding="True"
+        FontFamily="Segoe UI" FontSize="14" Foreground="{{FG}}" Background="{{WINBG}}">
+  <WindowChrome.WindowChrome>
+    <WindowChrome CaptionHeight="40" GlassFrameThickness="{{GLASS}}" ResizeBorderThickness="0" UseAeroCaptionButtons="True"/>
+  </WindowChrome.WindowChrome>
+  <Window.Resources>
+    <Style x:Key="Btn" TargetType="Button">
+      <Setter Property="Height" Value="36"/><Setter Property="MinWidth" Value="112"/><Setter Property="Padding" Value="18,0"/>
+      <Setter Property="Cursor" Value="Hand"/><Setter Property="Foreground" Value="{{FG}}"/>
+      <Setter Property="Background" Value="{{CTRL}}"/><Setter Property="BorderBrush" Value="{{CTRLBORDER}}"/>
+      <Setter Property="Template"><Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="b" CornerRadius="6" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="1" Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="Opacity" Value="0.88"/></Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter TargetName="b" Property="Opacity" Value="0.72"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="b" Property="Opacity" Value="0.4"/></Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value></Setter>
+    </Style>
+    <Style x:Key="Accent" TargetType="Button" BasedOn="{StaticResource Btn}">
+      <Setter Property="Background" Value="{{ACCENT}}"/><Setter Property="BorderBrush" Value="{{ACCENT}}"/>
+      <Setter Property="Foreground" Value="{{ONACCENT}}"/><Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style x:Key="Glyph" TargetType="TextBlock">
+      <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/><Setter Property="FlowDirection" Value="LeftToRight"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="Card" TargetType="Border">
+      <Setter Property="CornerRadius" Value="8"/><Setter Property="Background" Value="{{CARD}}"/>
+      <Setter Property="BorderBrush" Value="{{CARDBORDER}}"/><Setter Property="BorderThickness" Value="1"/>
+    </Style>
+  </Window.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="40"/><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+    <TextBlock Text="התקנה" FontSize="12" Foreground="{{FG2}}" Margin="18,0" VerticalAlignment="Center"/>
+
+    <!-- כותרת עם הלוגו -->
+    <Grid Grid.Row="1" Margin="28,4,28,18">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
+      <Grid Width="68" Height="68">
+        <Ellipse Fill="{{CARD}}" Stroke="{{CARDBORDER}}" StrokeThickness="1"/>
+        <Image x:Name="Logo" Width="60" Height="60" RenderOptions.BitmapScalingMode="HighQuality">
+          <Image.Clip><EllipseGeometry Center="30,30" RadiusX="30" RadiusY="30"/></Image.Clip>
+        </Image>
+      </Grid>
+      <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="הפיד" FontFamily="Segoe UI" FontSize="28" FontWeight="Bold"/>
+          <Border CornerRadius="10" Background="{{ACCENTSOFT}}" Padding="9,2" Margin="12,4,0,0" VerticalAlignment="Center">
+            <TextBlock x:Name="VerChip" FontSize="12" Foreground="{{ACCENT}}" FlowDirection="LeftToRight"/>
+          </Border>
+        </StackPanel>
+        <TextBlock Text="ערוצי חדשות ועדכונים, בפיד אחד בלוח הווידג'טים של Windows" Foreground="{{FG2}}" Margin="0,2,0,0"/>
+      </StackPanel>
+    </Grid>
+
+    <Grid Grid.Row="2" Margin="28,0,28,20">
+
+      <!-- ===== פתיחה ===== -->
+      <StackPanel x:Name="PageHome">
+        <WrapPanel x:Name="Chips" Margin="0,0,0,14"/>
+        <Border Style="{StaticResource Card}" Padding="4">
+          <StackPanel x:Name="Plan"/>
+        </Border>
+        <TextBlock x:Name="HomeNote" TextWrapping="Wrap" Foreground="{{FG2}}" FontSize="12.5" Margin="4,14,4,0" LineHeight="19"/>
+      </StackPanel>
+
+      <!-- ===== עבודה ===== -->
+      <StackPanel x:Name="PageWork" Visibility="Collapsed">
+        <TextBlock x:Name="WorkTitle" Text="מתקין" FontFamily="Segoe UI" FontSize="20" FontWeight="SemiBold" Margin="2,0,0,12"/>
+        <ProgressBar x:Name="Prog" Height="4" Minimum="0" Maximum="100" Foreground="{{ACCENT}}" Background="{{TRACK}}" Margin="2,0,2,18">
+          <ProgressBar.Template><ControlTemplate TargetType="ProgressBar"><Grid>
+            <Border x:Name="PART_Track" CornerRadius="2" Background="{TemplateBinding Background}"/>
+            <Border x:Name="PART_Indicator" CornerRadius="2" Background="{TemplateBinding Foreground}" HorizontalAlignment="Left"/>
+          </Grid></ControlTemplate></ProgressBar.Template>
+        </ProgressBar>
+        <Border Style="{StaticResource Card}" Padding="4">
+          <StackPanel x:Name="Steps"/>
+        </Border>
+        <TextBlock x:Name="WorkError" TextWrapping="Wrap" Foreground="{{BAD}}" Margin="4,14,4,0" Visibility="Collapsed"/>
+      </StackPanel>
+
+      <!-- ===== סיום ===== -->
+      <StackPanel x:Name="PageDone" Visibility="Collapsed">
+        <StackPanel Orientation="Horizontal" Margin="2,0,0,14">
+          <Grid Width="34" Height="34">
+            <Ellipse x:Name="DoneDisc" Fill="{{GOOD}}"/>
+            <TextBlock x:Name="DoneGlyph" Style="{StaticResource Glyph}" Text="&#xE73E;" FontSize="16" Foreground="White" HorizontalAlignment="Center"/>
+          </Grid>
+          <TextBlock x:Name="DoneTitle" FontFamily="Segoe UI" FontSize="20" FontWeight="SemiBold" Margin="12,0,0,0" VerticalAlignment="Center"/>
+        </StackPanel>
+        <TextBlock x:Name="DoneText" TextWrapping="Wrap" Foreground="{{FG2}}" Margin="2,0,2,14" LineHeight="21"/>
+        <StackPanel x:Name="Guide"/>
+      </StackPanel>
+    </Grid>
+
+    <!-- פוטר -->
+    <Border Grid.Row="3" Background="{{FOOTER}}" BorderBrush="{{CARDBORDER}}" BorderThickness="0,1,0,0" Padding="28,16">
+      <Grid>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button x:Name="BtnPrimary" Style="{StaticResource Accent}"/>
+          <Button x:Name="BtnSecondary" Style="{StaticResource Btn}" Margin="8,0,0,0" Visibility="Collapsed"/>
+        </StackPanel>
+        <Button x:Name="BtnClose" Style="{StaticResource Btn}" Content="סגירה" HorizontalAlignment="Left"/>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
+'@
+foreach ($k in $T.Keys) { $xaml = $xaml.Replace("{{$k}}", $T[$k]) }
+$xaml = $xaml.Replace('{{GLASS}}', $(if ($mica) { '-1' } else { '0' }))
+$win = [Windows.Markup.XamlReader]::Parse($xaml)
+$ui = @{}
+foreach ($n in 'Logo','VerChip','Chips','Plan','HomeNote','PageHome','PageWork','WorkTitle','WorkError','Prog','Steps','PageDone','DoneDisc','DoneGlyph','DoneTitle','DoneText','Guide','BtnPrimary','BtnSecondary','BtnClose') { $ui[$n] = $win.FindName($n) }
+$ErrorActionPreference = 'Continue'   # שגיאה ב-handler לא מפילה את החלון
+function Brush($c) { [Windows.Media.BrushConverter]::new().ConvertFromString($c) }
+
+if ($mica) {
+    Add-Type -Namespace HZ -Name Dwm -MemberDefinition '[DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr h, int a, ref int v, int s);' -ErrorAction SilentlyContinue
+    $win.Add_SourceInitialized({
+        $h = [Windows.Interop.WindowInteropHelper]::new($win).Handle
+        [Windows.Interop.HwndSource]::FromHwnd($h).CompositionTarget.BackgroundColor = [Windows.Media.Colors]::Transparent
+        $dark = [int](-not $light); $bd = 2
+        [HZ.Dwm]::DwmSetWindowAttribute($h, 20, [ref]$dark, 4) | Out-Null   # כותרת כהה
+        [HZ.Dwm]::DwmSetWindowAttribute($h, 38, [ref]$bd, 4) | Out-Null     # Mica
+    })
+}
+
+try {
+    $img = [Windows.Media.Imaging.BitmapImage]::new()
+    $img.BeginInit(); $img.StreamSource = [IO.MemoryStream]::new((Get-Data 'LOGO')); $img.CacheOption = 'OnLoad'; $img.EndInit()
+    $ui.Logo.Source = $img
+} catch { }
+$ui.VerChip.Text = "v$Version"
+
+# ---------- רכיבים ----------
+function New-Glyph($code, $size, $color) {
+    $g = [Windows.Controls.TextBlock]@{ Text = [string][char]$code; FontSize = $size }
+    $g.Style = $win.FindResource('Glyph'); $g.Foreground = Brush $color; $g
+}
+function New-Chip($ok, $text) {
+    $b = [Windows.Controls.Border]@{ CornerRadius = 14; Padding = '10,5,12,5'; Margin = '0,0,8,8'; BorderThickness = 1 }
+    $b.Background = Brush $T.CARD; $b.BorderBrush = Brush $T.CARDBORDER
+    $sp = [Windows.Controls.StackPanel]@{ Orientation = 'Horizontal' }
+    $color = if ($ok -eq $true) { $T.GOOD } elseif ($ok -eq $false) { $T.BAD } else { $T.ACCENT }
+    $glyph = if ($ok -eq $true) { 0xE73E } elseif ($ok -eq $false) { 0xE711 } else { 0xE946 }
+    [void]$sp.Children.Add((New-Glyph $glyph 12 $color))
+    [void]$sp.Children.Add([Windows.Controls.TextBlock]@{ Text = $text; FontSize = 12.5; Margin = '7,0,0,0' })
+    $b.Child = $sp; $b
+}
+# שורה בכרטיס: אייקון בעיגול, כותרת ותיאור. מחזיר את האייקון כדי לעדכן מצב.
+function New-Row($panel, $code, $title, $desc, [switch]$Last) {
+    $g = [Windows.Controls.Grid]@{ Margin = '14,12,14,12' }
+    [void]$g.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]@{ Width = 'Auto' })
+    [void]$g.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]@{})
+    $disc = [Windows.Controls.Border]@{ Width = 36; Height = 36; CornerRadius = 18; VerticalAlignment = 'Top' }
+    $disc.Background = Brush $T.ACCENTSOFT
+    $ic = New-Glyph $code 16 $T.ACCENT; $ic.HorizontalAlignment = 'Center'
+    $ic.RenderTransformOrigin = '0.5,0.5'; $ic.RenderTransform = [Windows.Media.RotateTransform]::new()
+    $disc.Child = $ic
+    $tx = [Windows.Controls.StackPanel]@{ Margin = '14,0,0,0'; VerticalAlignment = 'Center' }
+    [void]$tx.Children.Add([Windows.Controls.TextBlock]@{ Text = $title; FontWeight = 'SemiBold' })
+    $d = [Windows.Controls.TextBlock]@{ Text = $desc; TextWrapping = 'Wrap'; FontSize = 12.5; Margin = '0,2,0,0' }
+    $d.Foreground = Brush $T.FG2
+    [void]$tx.Children.Add($d)
+    [Windows.Controls.Grid]::SetColumn($tx, 1)
+    [void]$g.Children.Add($disc); [void]$g.Children.Add($tx)
+    [void]$panel.Children.Add($g)
+    if (-not $Last) {
+        $sep = [Windows.Controls.Border]@{ Height = 1; Margin = '64,0,14,0' }; $sep.Background = Brush $T.CARDBORDER
+        [void]$panel.Children.Add($sep)
+    }
+    @{ Disc = $disc; Icon = $ic; Desc = $d; Code = $code }
+}
+function Set-RowState($row, $state, $note) {
+    $spin = $row.Icon.RenderTransform
+    $spin.BeginAnimation([Windows.Media.RotateTransform]::AngleProperty, $null)
+    switch ($state) {
+        'run'  { $row.Icon.Text = [string][char]0xE895; $row.Icon.Foreground = Brush $T.ACCENT; $row.Disc.Background = Brush $T.ACCENTSOFT
+                 $a = [Windows.Media.Animation.DoubleAnimation]::new(0, 360, [Windows.Duration]::new([TimeSpan]::FromSeconds(1.1)))
+                 $a.RepeatBehavior = [Windows.Media.Animation.RepeatBehavior]::Forever
+                 $spin.BeginAnimation([Windows.Media.RotateTransform]::AngleProperty, $a) }
+        'ok'   { $row.Icon.Text = [string][char]0xE73E; $row.Icon.Foreground = Brush '#FFFFFF'; $row.Disc.Background = Brush $T.GOOD }
+        'skip' { $row.Icon.Text = [string][char]0xE73E; $row.Icon.Foreground = Brush $T.GOOD; $row.Disc.Background = Brush $T.ACCENTSOFT }
+        'fail' { $row.Icon.Text = [string][char]0xE711; $row.Icon.Foreground = Brush '#FFFFFF'; $row.Disc.Background = Brush $T.BAD }
+    }
+    if ($note) { $row.Desc.Text = $note }
+}
+function Show-Page($name) { foreach ($p in 'PageHome','PageWork','PageDone') { $ui[$p].Visibility = if ($p -eq $name) { 'Visible' } else { 'Collapsed' } } }
+
+# ---------- מצב המחשב ----------
+$State = @{}
+# The widgets button on the taskbar (TaskbarDa: 0 = off; missing = on) and the policy that turns widgets off.
+$TaskbarKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+function Test-TaskbarWidgets { (Get-ItemProperty $TaskbarKey -Name TaskbarDa -ErrorAction SilentlyContinue).TaskbarDa -ne 0 }
+function Test-WidgetsPolicyOff { (Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' -Name AllowNewsAndInterests -ErrorAction SilentlyContinue).AllowNewsAndInterests -eq 0 }
+function Read-State {
+    $State.Win11   = $build -ge 22621
+    $State.Widgets = [bool](Get-AppxPackage MicrosoftWindows.Client.WebExperience -ErrorAction SilentlyContinue)
+    $State.Taskbar = Test-TaskbarWidgets
+    $State.PolicyOff = Test-WidgetsPolicyOff
+    $State.Runtime = [bool](Get-Runtime)
+    $State.Open    = Test-PolicyOpen
+    $State.Trusted = Test-Trusted
+    $State.Pkg     = Get-AppxPackage $PkgName -ErrorAction SilentlyContinue
+}
+
+function Show-Home {
+    Read-State
+    Show-Page 'PageHome'
+    $ui.BtnPrimary.Visibility = 'Visible'
+    $ui.Chips.Children.Clear(); $ui.Plan.Children.Clear()
+    [void]$ui.Chips.Children.Add((New-Chip $State.Win11 $(if ($State.Win11) { 'Windows 11' } else { 'נדרש Windows 11 22H2 ומעלה' })))
+    [void]$ui.Chips.Children.Add((New-Chip $State.Widgets $(if ($State.Widgets) { "לוח הווידג'טים מותקן" } else { "לוח הווידג'טים חסר" })))
+    if ($State.PolicyOff) { [void]$ui.Chips.Children.Add((New-Chip $false "מדיניות במחשב מכבה את הווידג'טים")) }
+    else { [void]$ui.Chips.Children.Add((New-Chip $(if ($State.Taskbar) { $true } else { $null }) $(if ($State.Taskbar) { "הכפתור בשורת המשימות דלוק" } else { "הכפתור בשורת המשימות כבוי, יודלק" }))) }
+    [void]$ui.Chips.Children.Add((New-Chip $(if ($State.Open) { $true } else { $null }) $(if ($State.Open) { 'פידים של צד שלישי פתוחים' } else { 'פידים של צד שלישי סגורים' })))
+    if ($State.Pkg) { [void]$ui.Chips.Children.Add((New-Chip $true "מותקנת גרסה $($State.Pkg.Version)")) }
+
+        $prep = 'מיקרוסופט מאפשרת להחליף את החדשות בלוח רק באירופה. המתקין מוסיף את האזור שלך לשלושה כללים בקובץ ההגדרות האזוריות של Windows (ושומר עותק של המקור), ומאשר את החתימה של הפיד. בונוס: קישורים מהלוח ייפתחו בדפדפן שלך ולא ב-Edge.'
+    [void](New-Row $ui.Plan 0xE7EF 'הכנת Windows' $(if ($State.Open -and $State.Trusted) { 'כבר מוכן במחשב הזה.' } else { "$prep תופיע בקשה לאישור מנהל." }))
+    [void](New-Row $ui.Plan 0xE896 'Windows App Runtime' $(if ($State.Runtime) { 'רכיב של מיקרוסופט שהפיד צריך. כבר מותקן.' } else { 'רכיב של מיקרוסופט שהפיד צריך. יורד ישירות ממיקרוסופט (כ-60MB).' }))
+    [void](New-Row $ui.Plan 0xE789 'הפיד' 'רכיב קטן שמציג בלוח את הידיעות, התמונות והסרטונים, ומוסיף ווידג''טים והתראות. צורך כ-5MB זיכרון.' -Last)
+
+    $ui.HomeNote.Text = 'אחרי עדכון גדול של Windows, ייתכן שהקובץ יחזור למקור והפיד ייעלם מהלוח. אם זה קורה, מריצים את הקובץ הזה שוב.'
+    $ui.BtnPrimary.IsEnabled = $State.Win11 -and $State.Widgets -and -not $State.PolicyOff
+    $ui.BtnPrimary.Content = if (-not $State.Pkg) { 'התקנה' } elseif (-not $State.Open) { 'תיקון' } else { 'התקנה מחדש' }
+    $ui.BtnSecondary.Visibility = if ($State.Pkg -or (Test-Path "$Policy.orig")) { 'Visible' } else { 'Collapsed' }
+    $ui.BtnSecondary.Content = 'הסרה'
+    $ui.BtnClose.Content = 'סגירה'
+}
+
+# ---------- עבודה ברקע ----------
+# הצעדים רצים ב-runspace נפרד כדי שהחלון לא ייתקע. הממשק קורא את $Sync בטיימר.
+$Sync = [hashtable]::Synchronized(@{})
+$Worker = {
+    param($Sync, $Self, $PkgName, $Mode)
+    function Step($i, $state, $note) { $Sync["s$i"] = @($state, $note) }
+    function Elevated($arg) {
+        try { (Start-Process -FilePath $Self -ArgumentList $arg -Verb RunAs -WindowStyle Hidden -Wait -PassThru).ExitCode }
+        catch { -1 }   # המשתמש סירב לבקשת המנהל
+    }
+    try {
+        if ($Mode -eq 'install') {
+            Step 0 'run'
+            $c = if ($Sync.Open -and $Sync.Trusted) { 1 } else { Elevated 'setup' }   # כבר מוכן: בלי בקשת מנהל
+            if ($c -eq -1) { Step 0 'fail' 'לא ניתן אישור מנהל. בלי זה Windows לא יציג את הפיד.'; throw 'stop' }
+            if ($c -ge 10) { Step 0 'fail' "השינוי נכשל. פרטים ביומן: $env:ProgramData\HagizraFeed\setup.log"; throw 'stop' }
+            $Sync.Restart = ($c -eq 0)
+            Step 0 $(if ($c -eq 0) { 'ok' } else { 'skip' }) $(if ($c -eq 0) { 'מוכן. עותק של הקובץ המקורי נשמר לידו.' } else { 'כבר מוכן במחשב הזה.' })
+
+            Step 1 'run'
+            if (Get-Runtime) { Step 1 'skip' 'כבר מותקן.' }
+            else {
+                $exe = Join-Path $env:TEMP 'WindowsAppRuntimeInstall-x64.exe'
+                Step 1 'run' 'מוריד ממיקרוסופט...'
+                curl.exe -sSfL -o $exe 'https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe'
+                if ($LASTEXITCODE -or -not (Test-Path $exe)) { Step 1 'fail' 'ההורדה נכשלה. בדוק את החיבור לאינטרנט ונסה שוב.'; throw 'stop' }
+                Step 1 'run' 'מתקין...'
+                Start-Process $exe -ArgumentList '--quiet' -Wait -WindowStyle Hidden
+                Remove-Item $exe -Force -ErrorAction SilentlyContinue
+                if (-not (Get-Runtime)) { Step 1 'fail' 'ההתקנה של הרכיב נכשלה.'; throw 'stop' }
+                Step 1 'ok' 'הותקן.'
+            }
+
+            Step 2 'run'
+            $msix = Join-Path $env:TEMP "$PkgName.msix"
+            [IO.File]::WriteAllBytes($msix, (Get-Data 'MSIX'))
+            try { Add-AppxPackage -Path $msix -AllowUnsigned -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop }
+            catch { Step 2 'fail' "ההתקנה נכשלה: $(($_.Exception.Message -split "`r?`n")[0])"; throw 'stop' }
+            finally { Remove-Item $msix -Force -ErrorAction SilentlyContinue }
+            Step 2 'ok' 'מותקן.'
+            # The widgets button on the taskbar. Newer Windows protects this value from scripts (UCPD);
+            # then the done page opens the taskbar settings instead of working around it.
+            $k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+            if ((Get-ItemProperty $k -Name TaskbarDa -ErrorAction SilentlyContinue).TaskbarDa -eq 0) {
+                try { Set-ItemProperty $k -Name TaskbarDa -Value 1 -Type DWord -ErrorAction Stop } catch { }
+                $Sync.TaskbarOff = (Get-ItemProperty $k -Name TaskbarDa -ErrorAction SilentlyContinue).TaskbarDa -eq 0
+            }
+            # הלוח קורא את רשימת הפידים מחדש כשהוא עולה.
+            Get-Process Widgets, WidgetBoard -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        } else {
+            Step 0 'run'
+            $p = Get-AppxPackage $PkgName
+            if ($p) { try { $p | Remove-AppxPackage -ErrorAction Stop } catch { Step 0 'fail' "ההסרה נכשלה: $(($_.Exception.Message -split "`r?`n")[0])"; throw 'stop' } }
+            Step 0 'ok' $(if ($p) { 'הוסר.' } else { 'לא היה מותקן.' })
+            Step 1 'run'
+            $c = if ($Sync.HasBackup -or $Sync.Trusted) { Elevated 'remove' } else { 3 }
+            if ($c -eq -1) { Step 1 'fail' 'לא ניתן אישור מנהל. הקובץ נשאר פתוח.'; throw 'stop' }
+            if ($c -ge 10) { Step 1 'fail' "השחזור נכשל. פרטים ביומן: $env:ProgramData\HagizraFeed\setup.log"; throw 'stop' }
+            $Sync.Restart = ($c -eq 2)
+            Step 1 $(if ($c -eq 2) { 'ok' } else { 'skip' }) $(if ($c -eq 2) { 'הקובץ המקורי הוחזר, והתעודה הוסרה.' } else { 'לא נשאר מה להחזיר.' })
+        }
+        $Sync.Result = 'ok'
+    } catch { $Sync.Result = 'fail'; if ("$_" -ne 'stop') { $Sync.Error = "$_" } }
+}
+
+function Start-Work($mode) {
+    $Sync.Clear()
+    $Sync.Open = Test-PolicyOpen; $Sync.HasBackup = Test-Path "$Policy.orig"; $Sync.Trusted = Test-Trusted
+    Show-Page 'PageWork'
+    $ui.Steps.Children.Clear(); $ui.WorkError.Visibility = 'Collapsed'; $ui.Prog.Value = 0
+    $ui.BtnPrimary.Visibility = 'Collapsed'; $ui.BtnSecondary.Visibility = 'Collapsed'; $ui.BtnClose.IsEnabled = $false
+    $rows = if ($mode -eq 'install') {
+        $ui.WorkTitle.Text = 'מתקין את הפיד'
+        (New-Row $ui.Steps 0xE7EF 'הכנת Windows' 'ממתין לאישור מנהל...'),
+        (New-Row $ui.Steps 0xE896 'Windows App Runtime' 'ממתין...'),
+        (New-Row $ui.Steps 0xE789 'הפיד' 'ממתין...' -Last)
+    } else {
+        $ui.WorkTitle.Text = 'מסיר את הפיד'
+        (New-Row $ui.Steps 0xE74D 'הסרת הפיד' 'ממתין...'),
+        (New-Row $ui.Steps 0xE777 'החזרת Windows למצב המקורי' 'ממתין לאישור מנהל...' -Last)
+    }
+    $ps = [PowerShell]::Create()
+    # הפונקציות של המתקין לא קיימות ב-runspace החדש, ולכן מגדירים שם את מה שצריך.
+    $defs = "function Get-Data { ${function:Get-Data} }`nfunction Test-Trusted { ${function:Test-Trusted} }`n`$CertThumb = '$CertThumb'`nfunction Get-Runtime { ${function:Get-Runtime} }`n`$Self = '$($Self -replace "'", "''")'"
+    $ps.AddScript($defs).AddStatement() | Out-Null
+    $ps.AddScript($Worker.ToString()).AddArgument($Sync).AddArgument($Self).AddArgument($PkgName).AddArgument($mode) | Out-Null
+    $script:Job = @{ Ps = $ps; Handle = $ps.BeginInvoke(); Rows = $rows; Mode = $mode }
+    $timer.Start()
+}
+
+$timer = [Windows.Threading.DispatcherTimer]@{ Interval = [TimeSpan]::FromMilliseconds(120) }
+$timer.Add_Tick({
+    try {
+        $j = $script:Job; $done = 0
+        for ($i = 0; $i -lt $j.Rows.Count; $i++) {
+            $s = $Sync["s$i"]
+            if ($s -and "$($s[0])|$($s[1])" -ne $j["last$i"]) { Set-RowState $j.Rows[$i] $s[0] $s[1]; $j["last$i"] = "$($s[0])|$($s[1])" }
+            if ($s -and $s[0] -in 'ok', 'skip') { $done++ }
+        }
+        $target = 100 * $done / $j.Rows.Count
+        $ui.Prog.Value = [Math]::Max($ui.Prog.Value, $target)
+        if (-not $j.Handle.IsCompleted) { return }
+        $timer.Stop(); $j.Ps.Dispose()
+        Show-Done $j.Mode
+    } catch { }
+})
+
+function Add-GuideStep($n, $title, $desc) {
+    $b = [Windows.Controls.Border]@{ Margin = '0,0,0,8'; Padding = '14,12' }; $b.Style = $win.FindResource('Card')
+    $g = [Windows.Controls.Grid]@{}
+    [void]$g.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]@{ Width = 'Auto' })
+    [void]$g.ColumnDefinitions.Add([Windows.Controls.ColumnDefinition]@{})
+    $num = [Windows.Controls.Border]@{ Width = 26; Height = 26; CornerRadius = 13; VerticalAlignment = 'Top' }; $num.Background = Brush $T.ACCENT
+    $nt = [Windows.Controls.TextBlock]@{ Text = "$n"; FontWeight = 'Bold'; FontSize = 13; HorizontalAlignment = 'Center'; VerticalAlignment = 'Center' }
+    $nt.Foreground = Brush $T.ONACCENT; $num.Child = $nt
+    $tx = [Windows.Controls.StackPanel]@{ Margin = '12,2,0,0' }
+    [void]$tx.Children.Add([Windows.Controls.TextBlock]@{ Text = $title; FontWeight = 'SemiBold' })
+    if ($desc) { $d = [Windows.Controls.TextBlock]@{ Text = $desc; TextWrapping = 'Wrap'; FontSize = 12.5; Margin = '0,2,0,0' }; $d.Foreground = Brush $T.FG2; [void]$tx.Children.Add($d) }
+    [Windows.Controls.Grid]::SetColumn($tx, 1)
+    [void]$g.Children.Add($num); [void]$g.Children.Add($tx)
+    $b.Child = $g; [void]$ui.Guide.Children.Add($b)
+}
+
+function Show-Done($mode) {
+    $ui.BtnClose.IsEnabled = $true; $ui.BtnPrimary.Visibility = 'Visible'
+    if ($Sync.Result -ne 'ok') {
+        # נשארים במסך העבודה: השלב שנכשל מסומן באדום, עם ההסבר שלו.
+        $ui.WorkTitle.Text = if ($mode -eq 'install') { 'ההתקנה לא הושלמה' } else { 'ההסרה לא הושלמה' }
+        if ($Sync.Error) { $ui.WorkError.Text = $Sync.Error; $ui.WorkError.Visibility = 'Visible' }
+        $ui.BtnPrimary.Content = 'חזרה'; $script:Next = 'home'
+        return
+    }
+    Show-Page 'PageDone'
+    $ui.Guide.Children.Clear()
+    $restart = [bool]$Sync.Restart
+    if ($mode -eq 'install') {
+        $ui.DoneTitle.Text = 'הפיד מותקן'
+        $ui.DoneText.Text = 'נשארו כמה צעדים קצרים, ואז הידיעות יופיעו בלוח.'
+        $n = 1
+        if ($restart) { Add-GuideStep ($n++) 'הפעלה מחדש של המחשב' 'Windows קורא את ההגדרות האזוריות רק בעלייה.' }
+        if ($Sync.TaskbarOff) {
+            Add-GuideStep ($n++) "מדליקים את כפתור הווידג'טים" "Windows לא נותן לתוכנות להדליק אותו. בחלון ההגדרות שנפתח, מדליקים את המתג ""ווידג'טים"" תחת ""פריטים בשורת המשימות""."
+            Start-Process 'ms-settings:taskbar'
+        }
+        Add-GuideStep ($n++) "פותחים את הווידג'טים" 'מקש Windows + W, או הכפתור בשורת המשימות.'
+        Add-GuideStep ($n++) 'בודקים שהמתג של "הפיד" דלוק' 'גלגל השיניים בפינת הלוח. בדרך כלל הוא נדלק לבד. באותו מקום אפשר לכבות את "גלה", החדשות של מיקרוסופט.'
+        Add-GuideStep ($n++) 'לוחצים על הלוגו של הפיד' 'בסרגל הצד של הלוח. בפתיחה הראשונה עולה אשף קצר לבחירת הערוצים.'
+        Add-GuideStep ($n++) "רוצים גם ווידג'טים?" "בלוח לוחצים על + , בוחרים ""הפיד"", ומוסיפים מבזקים, ערוץ או פיד, או כותרת ראשית."
+        $ui.BtnPrimary.Content = if ($restart) { 'הפעלה מחדש עכשיו' } else { "פתיחת הווידג'טים" }
+        $script:Next = if ($restart) { 'restart' } else { 'widgets' }
+    } else {
+        $ui.DoneTitle.Text = 'הפיד הוסר'
+        $ui.DoneText.Text = if ($restart) { 'קובץ ההגדרות האזוריות חזר למקור. אחרי הפעלה מחדש, הלוח יחזור להיות כמו שהיה.' } else { 'לא נשאר במחשב שום דבר מהפיד.' }
+        $ui.BtnPrimary.Content = if ($restart) { 'הפעלה מחדש עכשיו' } else { 'סגירה' }
+        $script:Next = if ($restart) { 'restart' } else { 'close' }
+    }
+    $ui.BtnClose.Content = if ($restart) { 'אחר כך' } else { 'סגירה' }
+}
+
+# ---------- כפתורים ----------
+$script:Next = 'install'
+$ui.BtnPrimary.Add_Click({
+    switch ($script:Next) {
+        'install' { Start-Work 'install' }
+        'home'    { $script:Next = 'install'; Show-Home }
+        'restart' { shutdown.exe /r /t 5; $win.Close() }
+        'widgets' { Start-Process 'ms-widgets:'; $win.Close() }
+        'close'   { $win.Close() }
+    }
+})
+$ui.BtnSecondary.Add_Click({ Start-Work 'uninstall' })
+$ui.BtnClose.Add_Click({ $win.Close() })
+
+Show-Home
+[void]$win.ShowDialog()

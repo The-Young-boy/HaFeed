@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>תצוגת ווידג'טים</title>
+<!-- Dev aid: every widget card in every size, drawn with the Adaptive Cards renderer and Microsoft's widget
+     host config. Sizes are measured on this laptop's board (epx): 260 wide; small 128, medium 265, large 402
+     tall, with the board's 48 px title row. The board draws background pictures mirrored; so does this page. -->
+<script src="https://unpkg.com/adaptivecards@3.0.4/dist/adaptivecards.min.js"></script>
+<style>
+  body { margin: 0; padding: 16px; background: #eef1f4; font-family: "Segoe UI", sans-serif; }
+  body.dark { background: #1c1c1c; color: #fff; }
+  h2 { font-size: 15px; margin: 18px 4px 8px; }
+  .row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .w { width: 260px; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.12); overflow: hidden; display: flex; flex-direction: column; }
+  .dark .w { background: #2b2b2b; }
+  .w.small { height: 128px; } .w.medium { height: 265px; } .w.large { height: 402px; }
+  .hd { height: 48px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 14px; }
+  .hd i { width: 16px; height: 16px; border-radius: 4px; background: #1f6fbf; }
+  .hd b { font-weight: 400; flex: 1; } .hd s { text-decoration: none; letter-spacing: 2px; }
+  .body { flex: 1; overflow: hidden; padding: 0 16px 16px; }
+  .body .ac-adaptiveCard { padding: 0 !important; }
+  .body [style*="background-image"] { transform: scaleX(-1); }
+  .lbl { font-size: 11px; color: #888; margin: 4px 2px 0; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+(async () => {
+  const dark = location.hash === "#dark";
+  document.body.classList.toggle("dark", dark);
+  const host = new AdaptiveCards.HostConfig(await (await fetch("/widgets/widget-" + (dark ? "dark" : "light") + ".json")).json());
+  const cards = await (await fetch("/widgets/cards.json")).json();
+  const names = { breaking: "מבזקים", channel: "ערוץ או פיד", top: "כותרת ראשית" };
+  const out = document.getElementById("out");
+  for (const kind of ["breaking", "channel", "top"]) {
+    out.insertAdjacentHTML("beforeend", `<h2>${names[kind]}</h2><div class="row" id="r-${kind}"></div>`);
+    for (const c of cards.filter((x) => x.kind === kind)) {
+      const card = new AdaptiveCards.AdaptiveCard();
+      card.hostConfig = host;
+      const json = { ...c.card, rtl: true };
+      card.parse(json);
+      const w = document.createElement("div");
+      w.className = "w " + c.size;
+      const title = typeof c.card.header === "string" ? c.card.header : names[kind];
+      w.innerHTML = `<div class="hd"><i></i><b>${title}</b><s>···</s></div><div class="body"></div>`;
+      w.querySelector(".body").append(card.render());
+      const box = document.createElement("div");
+      box.append(w);
+      box.insertAdjacentHTML("beforeend", `<div class="lbl">${c.size}</div>`);
+      document.getElementById("r-" + kind).append(box);
+    }
+  }
+})();
+</script>
+</body>
+</html>

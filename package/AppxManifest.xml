@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:com="http://schemas.microsoft.com/appx/manifest/com/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 com rescap">
+
+  <Identity Name="HagizraWidget" Publisher="CN=HaFeed Dev" Version="0.3.69.0" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>הפיד</DisplayName>
+    <PublisherDisplayName>יאנג בוי</PublisherDisplayName>
+    <Logo>Images\logo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22621.0" MaxVersionTested="10.0.26200.0" />
+    <PackageDependency Name="Microsoft.WindowsAppRuntime.1.6" MinVersion="6000.519.329.0"
+      Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="he-IL" />
+  </Resources>
+
+  <Applications>
+    <Application Id="App" Executable="hagizra-widget.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="הפיד" Description="ערוצי חדשות ועדכונים בלוח הווידג'טים"
+        BackgroundColor="transparent" Square150x150Logo="Images\logo.png" Square44x44Logo="Images\logo.png"
+        AppListEntry="none" />
+      <Extensions>
+        <com:Extension Category="windows.comServer">
+          <com:ComServer>
+            <com:ExeServer Executable="hagizra-widget.exe" Arguments="-RegisterProcessAsComServer" DisplayName="Hagizra feed provider">
+              <com:Class Id="5D2F8A3E-7C41-4B9E-9A63-2E8F0C7D1B54" DisplayName="Hagizra feed provider" />
+              <com:Class Id="53219DDD-D127-43D1-8F2A-E0137971AFAF" DisplayName="Hagizra widgets provider" />
+            </com:ExeServer>
+          </com:ComServer>
+        </com:Extension>
+        <uap3:Extension Category="windows.appExtension">
+          <uap3:AppExtension Name="com.microsoft.windows.widgets.feeds" DisplayName="הפיד" Id="HagizraFeed" PublicFolder="Public">
+            <uap3:Properties>
+              <FeedProvider SettingsUri="https://hagizra.news/" Icon="Images\logo.png" Description="ערוצי חדשות ועדכונים">
+                <Activation>
+                  <CreateInstance ClassId="5D2F8A3E-7C41-4B9E-9A63-2E8F0C7D1B54" />
+                </Activation>
+                <Definitions>
+                  <Definition Id="hagizra" DisplayName="הפיד" Description="ערוצי חדשות ועדכונים"
+                    ContentUri="https://hagizra.news/winfeed/?board=1"
+                    WebRequestFilter="https://hagizra.news/winfeed/*"
+                    Icon="Images\logo.png" />
+                </Definitions>
+              </FeedProvider>
+            </uap3:Properties>
+          </uap3:AppExtension>
+        </uap3:Extension>
+        <uap3:Extension Category="windows.appExtension">
+          <uap3:AppExtension Name="com.microsoft.windows.widgets" DisplayName="הפיד" Id="HagizraWidgets" PublicFolder="Public">
+            <uap3:Properties>
+              <WidgetProvider>
+                <ProviderIcons><Icon Path="Images\logo.png" /></ProviderIcons>
+                <Activation>
+                  <CreateInstance ClassId="53219DDD-D127-43D1-8F2A-E0137971AFAF" />
+                </Activation>
+                <Definitions>
+                  <Definition Id="breaking" DisplayName="מבזקים" Description="המבזקים האחרונים, עם שם הערוץ והשעה" IsCustomizable="false">
+                    <Capabilities>
+                      <Capability><Size Name="small" /></Capability>
+                      <Capability><Size Name="medium" /></Capability>
+                      <Capability><Size Name="large" /></Capability>
+                    </Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\w-breaking.png" DisplayAltText="המבזקים האחרונים" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="channel" DisplayName="ערוץ או פיד" Description="ההודעות האחרונות מערוץ או מפיד שתבחר" IsCustomizable="true">
+                    <Capabilities>
+                      <Capability><Size Name="small" /></Capability>
+                      <Capability><Size Name="medium" /></Capability>
+                      <Capability><Size Name="large" /></Capability>
+                    </Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\w-channel.png" DisplayAltText="ההודעות האחרונות מערוץ" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="top" DisplayName="כותרת ראשית" Description="ידיעה אחת גדולה עם תמונה, מתחלפת כל כמה שניות" IsCustomizable="true">
+                    <Capabilities>
+                      <Capability><Size Name="small" /></Capability>
+                      <Capability><Size Name="medium" /></Capability>
+                      <Capability><Size Name="large" /></Capability>
+                    </Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\w-top.png" DisplayAltText="כותרת ראשית עם תמונה" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                </Definitions>
+              </WidgetProvider>
+            </uap3:Properties>
+          </uap3:AppExtension>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
