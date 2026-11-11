@@ -122,3 +122,44 @@ curl.exe -s "https://www.emess.co.il/Online/Feed/0?page=1"
 curl.exe -s "https://hm-news.co.il/wp-json/wp/v2/news-flash?per_page=20&acf_format=standard&_fields=id,date,date_gmt,link,title,acf"
 curl.exe -s "https://hm-news.co.il/wp-json/wp/v2/news-flash?per_page=20&before=2026-11-11T10:00:00&acf_format=standard"
 ```
+
+## 8. Haredi news sites (RSS and breaking)
+Checked 11.11.26. NetFree status comes from the Raspberry Pi (on NetFree). The laptop is NOT on NetFree, so laptop results are marked "laptop".
+Samples (first 2 items, trimmed) are in `samples/haredi-news/`.
+(Asked for as section 7. Numbered 8 because section 7 already holds the curl examples.)
+
+### NetFree status (Pi)
+- Open (200): jdn.co.il, hm-news.co.il, emess.co.il, kol-barama.co.il (radio), kore.co.il (כל רגע), hidabroot.org, bizzness.net, chabad.info, col.org.il, theyeshivaworld.com, hamodia.com, mishpacha.com.
+- Blocked (`418 Blocked by NetFree`, text/html, iframe to `netfree.link/block` with `"block":"deny"`): bhol.co.il (every path), kikar.co.il (also `/feed`), ch10.co.il, actualic.co.il, kooker.co.il, kolhazman.co.il, news08.net, kipa, ynet, kan, inn.
+- bhol.co.il is also behind a Cloudflare managed challenge (laptop: `403`, `cf-mitigated`, "Just a moment"). Not bypassed.
+- kikar.co.il works from the laptop (`/feed` is in the home page), but NetFree blocks it. Do not add.
+- No DNS record: bkehila.co.il, haredim10.co.il/.com, hamevaser.co.il, bhaderech.co.il, yated-neeman.co.il. hamodia.co.il resolves to 255.255.255.255. yated.co.il and mishpacha.co.il are unrelated businesses.
+- kolbarama.co.il is an events/lifestyle blog ("רמה", last post Aug 2026). The radio "קול ברמה" is **kol-barama.co.il**.
+
+### NetFree image review (important)
+A new image returns `200 image/*` from NetFree, but the body is a pixelated placeholder with the text "כעת התמונה נשלחה לנטפרי לבדיקה". Same size in pixels, much smaller in bytes.
+Seen on hm-news (23 KB vs 491 KB) and kol-barama (44 KB vs 512 KB). The emess image too (39 KB vs 828 KB).
+The placeholder adds `Cache-Control: no-cache, no-store, must-revalidate`. Do not cache images with that header. Fetch again later. Older images (JDN, kore, kcm.fm) came back real.
+
+### Per site
+- **JDN** (WordPress). `https://www.jdn.co.il/feed/` = 8 items, `media:content url=... medium="image"` on every item, `content:encoded` is the full text. Date RFC 822 `+0000`.
+  Category feeds work: `/category/<slug>/feed/` (news id 146, flashes id 3). The "flashes" category is short community news (~1 an hour), not real breaking news. Category `mivzak` (1113) is dead since March 2026.
+  API: `/wp-json/wp/v2/posts?per_page=20&_embed=wp:featuredmedia` -> `_embedded["wp:featuredmedia"][0].source_url`. `categories=3` / `categories_exclude=3` splits flashes from articles. `date` is Israel local time, `date_gmt` is UTC.
+  `www.jdn.co.il/news-flash/` and `/breaking/` redirect to archive.jdn.co.il and give 502.
+- **HaMechadesh** (WordPress). Breaking = CPT `news-flash` (see section 3): only a few a day (11.11: 01:18, 10:04, 11:31, 11:42, 11:46, 16:58).
+  `https://hm-news.co.il/feed/` = 10 articles, full text, but no image tag (1 of 10 has `<img>` in content). `/news-flash/feed/` and `?post_type=news-flash` return the same article feed.
+  For pictures use `/wp-json/wp/v2/posts?per_page=10&_embed=wp:featuredmedia`. Sizes include `hm-hero` (1335x750) and `hm-card-lg`.
+- **Emess** (Nuxt front, WordPress back). Breaking = `/Online/Feed/0` (section 3). New items every 1-3 minutes.
+  `https://www.emess.co.il/feed` = 50 items, starts with a newline before `<?xml` (strict parsers fail: trim first). Only 8/50 have an `<img>`. `/rss` and `/rss.xml` are the Nuxt HTML page.
+  `/wp-json/wp/v2/posts?per_page=10` is a custom shape: `featured_image` (direct URL), `final_slug` (e.g. `/radio/1960666`), `cat_info`, `excerpt`, no `link`. Category `flash` (id 2) is stale since 2024. `/category/*/feed` is 404.
+- **Kol Barama radio** (WordPress). Posts are dead. Real content = CPT `item` (interview segments), several an hour.
+  `https://kol-barama.co.il/feed/?post_type=item` = 15 items, `<enclosure type="image/jpeg">`, date `+0000`. The XML repeats `xmlns:media` on `<rss>`, so strict parsers fail. Use a loose parser or regex.
+  API: `/wp-json/wp/v2/item?per_page=10&_embed=wp:featuredmedia`. No breaking section. Cloudflare only loads its passive `jsd` script, no challenge.
+- **Kore (כל רגע)** (own CMS). `https://www.kore.co.il/rss` = 84 items with a custom `<picture>` URL (media.kore.co.il), summary only, date `Wed, 11 Nov 2026 20:33:00 IST`. `/feed/` = same items, image in `content:encoded`, date with 2-digit year `Wed, 11 Nov 26 ... +0200`.
+  Breaking: `/flashNews` (= `/newsflash`) HTML only, ~560 items `<div class="item" id="...">` + `<h3>` + `<div class="date">HH:MM</div>`, a few a minute. No JSON found (`/alerts_history.json` is home-front alerts, empty).
+- **Hidabroot**: `https://www.hidabroot.org/rss` = 42 items, same format as kore (`<picture>`, IST). Kiruv/news site, Haredi-friendly.
+- **bizzness.net** (Haredi business news): `/feed/` 10 items, full text, no images. **chabad.info** `/feed/` = 500. **col.org.il** `/feed/` returns the HTML page.
+
+### Recommendation
+- Breaking sources: emess `/Online/Feed/0` (already in), kore `/flashNews` (HTML scrape), hm-news `news-flash` (already in, low volume). JDN has no real breaking feed.
+- Headline widget (article + picture): JDN `/feed/` (media:content), kore `/rss` (`<picture>`), hm-news and emess through wp-json (featured image), kol-barama `item` feed (enclosure). Handle the NetFree placeholder image.

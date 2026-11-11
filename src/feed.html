@@ -783,6 +783,8 @@ const SOURCES = [
   { id: "emess", name: "אמס אונליין", cat: "news", kind: "emess", base: "https://www.emess.co.il", logo: "https://www.emess.co.il/logo.svg" },
   { id: "hmnews", name: "מבזקי המחדש", cat: "news", kind: "hmnews", base: "https://hm-news.co.il",
     logo: "https://hm-news.co.il/wp-content/uploads/2026/06/cropped-hm-icon-1.png" },
+  { id: "kore", name: "כל רגע", note: "עדכונים שוטפים, שורה אחת כל עדכון", cat: "news", kind: "kore", base: "https://www.kore.co.il",
+    logo: "https://www.google.com/s2/favicons?domain=www.kore.co.il&sz=64" },
   { id: "myshemesh", name: "מיין שמש", note: "חדשות בית שמש", cat: "news", kind: "chat", variant: "chatfree", base: "https://myshemesh.co.il",
     logo: "https://myshemesh.co.il/api/files/27ae34f9175316e16fcbb9bc47a3deb62d2ab3c9" },
   { id: "moked", name: "המוקד", note: "פתוח גם דרך אותנטי ניוז", cat: "news", kind: "chat", base: "https://channel.h-news.co.il", login: true,
@@ -982,6 +984,16 @@ const ADAPTERS = {
   },
 
   // authenti.newsupdates.click: one channel per source; 50 per page, ascending; before_id for older.
+  // kore.co.il/flashNews: one HTML page with the last ~560 updates (h3 text, date in a comment, HH:MM), no API.
+  // The page is parsed once a minute at most; paging walks the parsed list.
+  kore: {
+    async page(src, at) {
+      const all = await koreAll(src);
+      const items = all.slice(at || 0, (at || 0) + PAGE);
+      return { items, next: items.length ? (at || 0) + items.length : 0 };
+    },
+    rewind: (src, kept) => kept.length,
+  },
   authenti: {
     async page(src, before) {
       const q = new URLSearchParams({ source: src.channel });
@@ -1262,6 +1274,7 @@ function linkOf(it) {
   if (s.kind === "hateder") return `${s.base}/n/${it.id}`;
   if (s.kind === "emess" && it.feed) return `${s.base}/online/${it.feed}?item=${it.id}`;
   if (s.kind === "authenti") return `${s.base}/?msg=${it.id}`;
+  if (s.kind === "kore") return `${s.base}/flashNews`;
   return s.base;
 }
 // Through the provider, so the default browser opens it and not the board's own view.
@@ -2177,6 +2190,67 @@ $("#ntOnly").addEventListener("change", (e) => ntSet("only", e.target.value));
 $("#ntNever").addEventListener("change", (e) => ntSet("never", e.target.value));
 $("#ntMergeAt").addEventListener("change", (e) => ntSet("mergeAt", Math.max(2, +e.target.value || 3)));
 
+let KORE = { at: 0, list: [] };
+async function koreAll(src) {
+  if (Date.now() - KORE.at < 60000) return KORE.list;
+  const html = await get(src, `${src.base}/flashNews`, { text: true });
+  const list = [];
+  for (const m of html.matchAll(/<div class="item" id="(\d+)">([\s\S]*?)<div class="date">(\d\d):(\d\d)<\/div>/g)) {
+    const d = /<span>(\d\d)\.(\d\d)\.(\d\d)<\/span>/.exec(m[2]);
+    const h3 = /<h3>([\s\S]*?)<\/h3>/.exec(m[2]);
+    if (!d || !h3) continue;
+    const text = decode(h3[1].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+    list.push({ src: src.id, id: +m[1], t: ilTime(`20${d[3]}-${d[2]}-${d[1]} ${m[3]}:${m[4]}:00`), text, gone: !text });
+  }
+  list.sort((a, b) => b.t - a.t || b.id - a.id);
+  KORE = { at: Date.now(), list };
+  return list;
+}
+// ---------- articles (for the headline widget) ----------
+// Real articles with a picture, from the news sites' own feeds (sources/NOTES.md, section 8). All open on
+// NetFree (checked from the Pi, 11.11.26); bhol and kikar are not, so they are not here.
+const ARTICLE_SITES = [
+  { id: "jdn", name: "JDN", site: "https://www.jdn.co.il", feed: "https://www.jdn.co.il/feed/", kind: "rss" },
+  { id: "kore", name: "כל רגע", site: "https://www.kore.co.il", feed: "https://www.kore.co.il/rss", kind: "rss" },
+  { id: "hmnews", name: "המחדש", site: "https://hm-news.co.il", kind: "wp",
+    feed: "https://hm-news.co.il/wp-json/wp/v2/posts?per_page=8&_embed=wp:featuredmedia&_fields=id,date_gmt,link,title,excerpt,_links,_embedded" },
+  { id: "emess", name: "אמס", site: "https://www.emess.co.il", feed: "https://www.emess.co.il/wp-json/wp/v2/posts?per_page=8", kind: "emess" },
+  { id: "kolbarama", name: "קול ברמה", site: "https://kol-barama.co.il", feed: "https://kol-barama.co.il/feed/?post_type=item", kind: "rss" },
+];
+const siteLogo = (a) => byId(a.id)?.logo || `https://www.google.com/s2/favicons?domain=${new URL(a.site).host}&sz=64`;
+const flat = (s) => decode(String(s || "").replace(/<!\[CDATA\[|\]\]>/g, "").replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+// RSS by hand: one feed declares a namespace twice, which a strict XML parser refuses.
+function rssArticles(xml) {
+  return (String(xml).match(/<item[\s>][\s\S]*?<\/item>/g) || []).map((it) => {
+    const tag = (n) => (it.match(new RegExp(`<${n}[^>]*>([\\s\\S]*?)</${n}>`)) || [])[1] || "";
+    const img = (it.match(/<media:content[^>]*url="([^"]+)"/) || it.match(/<enclosure[^>]*url="([^"]+)"/) || [])[1]
+      || tag("picture").trim() || (it.match(/<img[^>]*src="([^"]+)"/) || [])[1] || "";
+    const when = tag("pubDate").trim();
+    // kore writes Israel time as "... IST"
+    const t = / IST$/.test(when) ? ilTime(new Date(Date.parse(when.replace(/ IST$/, " GMT"))).toISOString().slice(0, 19).replace("T", " ")) : Date.parse(when) || 0;
+    return { title: flat(tag("title")), sub: flat(tag("description")).slice(0, 300), url: flat(tag("link")), img: decode(img.trim()), t };
+  });
+}
+async function loadArticles(a) {
+  const via = "/winfeed/proxy?u=" + encodeURIComponent(a.feed);
+  const r = await fetch(via, { cache: "no-store" });
+  if (!r.ok) throw new Error(a.id + " " + r.status);
+  if (a.kind === "rss") return rssArticles(await r.text());
+  const list = await r.json();
+  if (a.kind === "wp") return list.map((m) => ({
+    title: flat(m.title?.rendered), sub: flat(m.excerpt?.rendered).slice(0, 300), url: m.link, t: Date.parse(m.date_gmt + "Z") || 0,
+    img: m._embedded?.["wp:featuredmedia"]?.[0]?.media_details?.sizes?.["hm-hero"]?.source_url || m._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "" }));
+  return list.map((m) => ({ title: flat(m.title?.rendered), sub: flat(m.excerpt?.rendered).slice(0, 300),
+    url: a.site + (m.final_slug || "/"), t: ilTime(String(m.date).replace("T", " ")), img: m.featured_image || "" }));
+}
+// The newest four with a picture from each site, newest first: every site gets turns, not only the busiest.
+async function articleList(which) {
+  const sites = which === "all" ? ARTICLE_SITES : ARTICLE_SITES.filter((a) => a.id === which);
+  const got = await Promise.all(sites.map((a) => loadArticles(a).then((l) => l.filter((x) => x.img && x.title).sort((x, y) => y.t - x.t)
+    .slice(0, which === "all" ? 4 : 12).map((x) => ({ ...x, n: a.name, site: a })), (e) => { plog("articles " + e.message); return []; })));
+  return got.flat().sort((x, y) => y.t - x.t).slice(0, 12);
+}
+
 // ---------- widgets ----------
 // The provider draws the widgets; the page loads what they show (it has the adapters, and it keeps running
 // while the board is closed). Every 5 s (a local call): ask which lists the widgets on the board need, load the stale ones
@@ -2189,7 +2263,9 @@ const W_IMG = new Map();
 function wImg(url, size, png) {
   if (!url) return Promise.resolve("");
   const key = (png ? "w" : "f") + [...url].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7).toString(36);
-  if (!W_IMG.has(key)) W_IMG.set(key, (async () => {
+  // NetFree first answers a new picture with a "sent for review" placeholder: convert again after 15 minutes.
+  if (W_IMG.has(key) && Date.now() - (W_IMG.get(key).at || 0) > 15 * 6e4) W_IMG.delete(key);
+  if (!W_IMG.has(key)) W_IMG.set(key, Object.assign((async () => {
     const img = new Image(); img.src = await dataUrl(url); await img.decode();
     // An SVG without width and height decodes as 0 x 0: give it the box size.
     const nw = img.naturalWidth || size, nh = img.naturalHeight || size;
@@ -2205,7 +2281,7 @@ function wImg(url, size, png) {
     const dw = nw * k, dh = nh * k;
     g.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
     return png ? cv.toDataURL("image/png") : cv.toDataURL("image/jpeg", 0.72);
-  })().catch(() => { W_IMG.delete(key); return ""; }));
+  })().catch(() => { W_IMG.delete(key); return ""; }), { at: Date.now() }));
   // Sent with every update: the provider may have restarted and lost it (it keeps only what is in use).
   return W_IMG.get(key).then((d) => d && fetch("/winfeed/widgets/img?k=" + key + "&d=" + encodeURIComponent(d)).then(() => "img:" + key, () => ""));
 }
@@ -2223,6 +2299,7 @@ async function wLoad(list, pages = 1) {
     return items.sort((a, b) => b.t - a.t).slice(0, 6);
   }
   // The headline widget: the newest items that have a picture (from a deeper look, 3 pages a source).
+  if (list.startsWith("top:articles:")) return articleList(list.slice(13));
   if (list.startsWith("top:")) {
     const all = await wLoad(list.slice(4), 3);
     const pics = all.filter((it) => norm(it).media.some((m) => m.kind === "image"));
@@ -2253,11 +2330,13 @@ async function widgetTick() {
   for (const list of need.lists) {
     if (!need.refresh && Date.now() - (W_LISTS[list] || 0) < 180000) continue;
     W_LISTS[list] = Date.now();
-    const got = (await wLoad(list)).map((it) => [it, wItem(it)]);
+    const raw = await wLoad(list);
+    // Articles come ready (title, picture, link); channel items go through wItem.
+    const got = raw.map((it) => [it, it.site ? { key: "", n: it.n, logo: "", t: it.t, title: it.title, sub: it.sub, line: "", img: it.img, url: it.url, brk: false } : wItem(it)]);
     // Logos for all; pictures for the first five (the lead item, and the headline's turns).
     await Promise.all(got.map(async ([it, w], i) => {
-      w.logo = await wImg(byId(it.src).logo, 48, true);
-      w.img = i < 5 ? await wImg(w.img, 420, false) : "";
+      w.logo = await wImg(it.site ? siteLogo(it.site) : byId(it.src).logo, 48, true);
+      w.img = i < (list.startsWith("top:") ? 12 : 5) ? await wImg(w.img, 420, false) : "";
     }));
     lists[list] = got.map(([, w]) => w);
   }
@@ -2265,9 +2344,10 @@ async function widgetTick() {
     ...tabOrder().filter((id) => id === "all" || tabSources(id).length).map((id) => ({ id: "tab:" + id, name: tabName(id) })),
     ...enabled().map((s) => ({ id: "src:" + s.id, name: s.name })),
   ];
+  const choicesTop = [{ id: "articles:all", name: "כתבות מכל האתרים" }, ...ARTICLE_SITES.map((a) => ({ id: "articles:" + a.id, name: "כתבות: " + a.name }))];
   if (!Object.keys(lists).length && W_LISTS._choices === JSON.stringify(choices)) return;
   W_LISTS._choices = JSON.stringify(choices);
-  await fetch("/winfeed/widgets/push?d=" + encodeURIComponent(JSON.stringify({ choices, lists }))).catch(() => {});
+  await fetch("/winfeed/widgets/push?d=" + encodeURIComponent(JSON.stringify({ choices, choicesTop, lists }))).catch(() => {});
 }
 // A click on the headline widget: the feed jumps to that item the moment it shows.
 let wGoto = "";

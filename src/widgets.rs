@@ -63,6 +63,7 @@ pub fn push(body: &str) {
     let Ok(new) = serde_json::from_str::<Value>(body) else { return log("widgets: bad push") };
     let mut all = data();
     if let Some(c) = new.get("choices") { all["choices"] = c.clone(); }
+    if let Some(c) = new.get("choicesTop") { all["choicesTop"] = c.clone(); }
     if all.get("lists").and_then(Value::as_object).is_none() { all["lists"] = json!({}); }
     if let Some(l) = new.get("lists").and_then(Value::as_object) {
         for (k, v) in l { all["lists"][k] = v.clone(); }
@@ -121,8 +122,9 @@ const WAIT: &str = "פתח פעם אחת את הפיד בלוח, וכאן יופ
 // the board draws the title row itself (so no title inside the card), at most 1 / 3 / 4 click targets for
 // small / medium / large, round avatars of 24 px, the Windows type ramp, spacing in multiples of 4.
 fn open(w_kind: &str, it: &Value) -> Value {
-    // The headline opens in the feed (the page jumps to it); the lists open the item on its site.
-    if w_kind == "top" { json!({ "type": "Action.Execute", "verb": "open", "data": { "key": it["key"] } }) }
+    // A feed item in the headline opens in the feed (the page jumps to it); everything else opens on its site.
+    // A site's article is not in the feed: it opens on its site.
+    if w_kind == "top" && !s(&it["key"]).is_empty() { json!({ "type": "Action.Execute", "verb": "open", "data": { "key": it["key"] } }) }
     else { json!({ "type": "Action.OpenUrl", "url": it["url"] }) }
 }
 fn s(v: &Value) -> &str { v.as_str().unwrap_or("") }
@@ -191,10 +193,11 @@ fn dots(n: usize, at: usize) -> Value {
 
 pub fn render(w: &W) -> String {
     if w.customizing {
-        let choices: Vec<Value> = data()["choices"].as_array().cloned().unwrap_or_default().iter()
+        let key = if w.kind == "top" { "choicesTop" } else { "choices" };
+        let choices: Vec<Value> = data()[key].as_array().cloned().unwrap_or_default().iter()
             .map(|c| json!({ "title": c["name"], "value": c["id"] })).collect();
         let body = json!([
-            { "type": "TextBlock", "text": if w.kind == "top" { "מאיזה פיד להציג כותרות?" } else { "מה להציג בווידג'ט?" }, "weight": "Bolder", "wrap": true },
+            { "type": "TextBlock", "text": if w.kind == "top" { "מאיזה אתר להציג כתבות?" } else { "מה להציג בווידג'ט?" }, "weight": "Bolder", "wrap": true },
             { "type": "Input.ChoiceSet", "id": "pick", "value": w.pick, "style": "compact", "choices": choices },
         ]);
         let actions = json!([{ "type": "Action.Execute", "title": "שמירה", "verb": "save" }, { "type": "Action.Execute", "title": "ביטול", "verb": "cancel" }]);
@@ -210,7 +213,7 @@ pub fn render(w: &W) -> String {
         return card(empty(msg), json!([]), head);
     }
     let body = if w.kind == "top" {
-        let n = list.len().min(5);
+        let n = list.len().min(10);
         let at = TURN.load(Ordering::Relaxed) % n;
         let it = &list[at];
         match w.size {
@@ -263,7 +266,12 @@ fn update_all(only_top: bool) {
 fn from_ctx(ctx: &WidgetContext, custom: &str) -> windows_core::Result<(String, W)> {
     let kind = ctx.DefinitionId()?.to_string_lossy();
     let pick = serde_json::from_str::<Value>(custom).ok().and_then(|v| v["pick"].as_str().map(str::to_string))
-        .unwrap_or_else(|| if kind == "channel" { "tab:all".into() } else { "tab:all".into() });
+        .unwrap_or_default();
+    let pick = match (kind.as_str(), pick.as_str()) {
+        ("top", p) if !p.starts_with("articles:") => "articles:all".into(),
+        (_, "") => "tab:all".into(),
+        _ => pick,
+    };
     Ok((ctx.Id()?.to_string_lossy(), W { kind, size: ctx.Size()?, pick, active: ctx.IsActive()?, customizing: false }))
 }
 
@@ -359,7 +367,7 @@ impl IWidgetProvider2_Impl for Provider_Impl {
 /// tools/widget-preview.html. The board itself never calls this.
 pub fn dump(path: &str) {
     let mut out = vec![];
-    for (kind, pick) in [("breaking", "breaking"), ("channel", "tab:all"), ("top", "tab:all")] {
+    for (kind, pick) in [("breaking", "breaking"), ("channel", "tab:all"), ("top", "articles:all")] {
         for (name, size) in [("small", WidgetSize::Small), ("medium", WidgetSize::Medium), ("large", WidgetSize::Large)] {
             let w = W { kind: kind.into(), size, pick: pick.into(), active: true, customizing: false };
             out.push(json!({ "kind": kind, "size": name, "card": serde_json::from_str::<Value>(&render(&w)).unwrap_or(Value::Null) }));
