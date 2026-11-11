@@ -164,6 +164,20 @@ impl IFeedResourceProvider_Impl for Provider_Impl {
             }
             return args.SetResponse(&respond(update::status().as_bytes(), "application/json", 200)?);
         }
+        // /winfeed/backup?d=<json>: the settings backup, to Documents\HaFeed-backup-<date>.json; answers the file name.
+        if let Some(q) = uri.split_once("/winfeed/backup?").map(|(_, q)| q) {
+            let d = http::query(q, "d").next().unwrap_or_default();
+            if !d.starts_with("{\"hafeed\"") || d.len() > 2_000_000 {
+                return args.SetResponse(&respond(b"bad backup", "text/plain", 400)?);
+            }
+            let docs = std::path::PathBuf::from(std::env::var("USERPROFILE").unwrap_or_default()).join("Documents");
+            let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|x| x.as_secs()).unwrap_or(0);
+            let name = format!("HaFeed-backup-{}.json", secs);
+            return match std::fs::write(docs.join(&name), d.as_bytes()) {
+                Ok(()) => args.SetResponse(&respond(name.as_bytes(), "text/plain; charset=utf-8", 200)?),
+                Err(e) => { log(&format!("backup: {e}")); args.SetResponse(&respond(b"", "text/plain", 500)?) }
+            };
+        }
         // /winfeed/open?u=<https url>: the default browser (the board's own web view would keep it inside).
         if let Some(q) = uri.split_once("/winfeed/open?").map(|(_, q)| q) {
             let url = http::query(q, "u").next().unwrap_or_default();
@@ -266,7 +280,7 @@ impl IClassFactory_Impl for Factory_Impl {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if let Some(i) = args.iter().position(|a| a == "--cards") {
-        return widgets::dump(args.get(i + 1).map(String::as_str).unwrap_or("cards.json"));
+        return widgets::dump(args.get(i + 1).map(String::as_str).unwrap_or("cards.json"), args.get(i + 2).map(String::as_str));
     }
     unsafe {
         CoInitializeEx(core::ptr::null(), 0).ok().ok(); // COINIT_MULTITHREADED

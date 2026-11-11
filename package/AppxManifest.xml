@@ -7,7 +7,7 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap uap3 com rescap">
 
-  <Identity Name="HagizraWidget" Publisher="CN=HaFeed Dev" Version="0.3.73.0" ProcessorArchitecture="x64" />
+  <Identity Name="HagizraWidget" Publisher="CN=HaFeed Dev" Version="0.3.75.0" ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>הפיד</DisplayName>
@@ -100,6 +100,58 @@
                     <ThemeResources>
                       <Icons><Icon Path="Images\logo.png" /></Icons>
                       <Screenshots><Screenshot Path="Images\w-top.png" DisplayAltText="כותרת ראשית עם תמונה" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="popular" DisplayName="פופולרי עכשיו" Description="הידיעות עם הכי הרבה תגובות ב-12 השעות האחרונות" IsCustomizable="false">
+                    <Capabilities>
+                      <Capability><Size Name="small" /></Capability>
+                      <Capability><Size Name="medium" /></Capability>
+                      <Capability><Size Name="large" /></Capability>
+                    </Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\w-popular.png" DisplayAltText="הידיעות הפופולריות" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="search" DisplayName="חיפוש בפיד" Description="חיפוש מילה בידיעות האחרונות של כל הערוצים" IsCustomizable="false">
+                    <Capabilities>
+                      <Capability><Size Name="small" /></Capability>
+                      <Capability><Size Name="medium" /></Capability>
+                      <Capability><Size Name="large" /></Capability>
+                    </Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\w-search.png" DisplayAltText="חיפוש בפיד" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="cats" DisplayName="כותרת מכל קטגוריה" Description="הידיעה האחרונה בכל קטגוריה" IsCustomizable="false">
+                    <Capabilities>
+                      <Capability><Size Name="small" /></Capability>
+                      <Capability><Size Name="medium" /></Capability>
+                      <Capability><Size Name="large" /></Capability>
+                    </Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\w-cats.png" DisplayAltText="כותרת מכל קטגוריה" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="deal" DisplayName="דיל אחרון" Description="הדיל האחרון עם תמונה ומחיר" IsCustomizable="false">
+                    <Capabilities>
+                      <Capability><Size Name="small" /></Capability>
+                      <Capability><Size Name="medium" /></Capability>
+                      <Capability><Size Name="large" /></Capability>
+                    </Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\w-deal.png" DisplayAltText="הדיל האחרון" /></Screenshots>
                       <DarkMode />
                       <LightMode />
                     </ThemeResources>

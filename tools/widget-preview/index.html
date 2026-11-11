@@ -20,7 +20,7 @@
   .hd b { font-weight: 400; flex: 1; } .hd s { text-decoration: none; letter-spacing: 2px; }
   .body { flex: 1; overflow: hidden; padding: 0 16px 16px; }
   .body .ac-adaptiveCard { padding: 0 !important; }
-  .body [style*="background-image"] { transform: scaleX(-1); }
+  body:not(.raw) .body [style*="background-image"] { transform: scaleX(-1); }
   .lbl { font-size: 11px; color: #888; margin: 4px 2px 0; }
 </style>
 </head>
@@ -30,11 +30,13 @@
 (async () => {
   const dark = location.hash === "#dark";
   document.body.classList.toggle("dark", dark);
+  // ?...&raw: pictures as they are (dev data), not pre-flipped for the board.
+  document.body.classList.toggle("raw", /[?&]raw/.test(location.search) || location.search.includes(",raw"));
   const host = new AdaptiveCards.HostConfig(await (await fetch("/widgets/widget-" + (dark ? "dark" : "light") + ".json")).json());
   const cards = await (await fetch("/widgets/cards.json")).json();
-  const names = { breaking: "מבזקים", channel: "ערוץ או פיד", top: "כותרת ראשית" };
+  const names = { breaking: "מבזקים", channel: "ערוץ או פיד", top: "כותרת ראשית", popular: "פופולרי עכשיו", cats: "כותרת מכל קטגוריה", deal: "דיל אחרון", search: "חיפוש בפיד" };
   const out = document.getElementById("out");
-  for (const kind of ["breaking", "channel", "top"]) {
+  for (const kind of (location.search.slice(1).replace(/[,&]?raw/, "") || "breaking,channel,top,popular,cats,deal,search").split(",").filter(Boolean)) {
     out.insertAdjacentHTML("beforeend", `<h2>${names[kind]}</h2><div class="row" id="r-${kind}"></div>`);
     for (const c of cards.filter((x) => x.kind === kind)) {
       const card = new AdaptiveCards.AdaptiveCard();

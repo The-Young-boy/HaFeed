@@ -1,7 +1,7 @@
 // Dev only: serves src/feed.html at /winfeed/, proxies /api/* to hagizra.news, and mirrors the provider's
 // /winfeed/proxy (same query format), the same origin layout the widgets board gives the page. node tools/dev-server.mjs
 import { createServer } from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -45,6 +45,11 @@ createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "application/json" }).end(`{"current":"","latest":"","state":"idle","note":"","auto":true,"dev":true}`); // updates are the provider's
     } else if (u.pathname === "/winfeed/auth") {
       res.writeHead(200, { "content-type": "application/json" }).end(`{"signed":[],"pending":[],"failed":{}}`); // sign-in only works in the board
+    } else if (u.pathname === "/widgets/data" && req.method === "POST") {
+      // The lists a dev page computed (wLoad + wItem), for hagizra-widget.exe --cards <out> <this file>.
+      const chunks = []; for await (const ch of req) chunks.push(ch);
+      await writeFile(join(tmpdir(), "hagizra-widgetdata.json"), Buffer.concat(chunks));
+      res.writeHead(200).end("ok");
     } else if (u.pathname === "/widgets/cards.json") {
       // The widget cards in every size: hagizra-widget.exe --cards %TEMP%\hagizra-cards.json, shown by tools/widget-preview.
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }).end(await readFile(join(tmpdir(), "hagizra-cards.json")));

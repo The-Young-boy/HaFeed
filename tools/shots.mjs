@@ -48,6 +48,11 @@ await shot("feed-news", { prep: `document.querySelector('#tabs [data-f="news"]')
 for (const t of ["display", "notify", "feeds", "sources", "accounts", "about"]) await shot("set-" + t, { prep: tab(t) });
 await shot("set-notify-dark", { dark: true, prep: tab("notify") });
 await shot("set-sources-dark", { dark: true, prep: tab("sources") });
+const arts = `S.on = [...new Set([...S.on, "art-jdn", "art-kore", "art-hmnews", "art-emess"])]; saveSettings(); buildTabs();`;
+await shot("feed-articles", { prep: arts + ` document.querySelector('#tabs [data-f="articles"]').click(); await new Promise(r => setTimeout(r, 5000));` });
+await shot("feed-compact", { prep: `S.compact = true; applyLook(); await new Promise(r => setTimeout(r, 1500));` });
+await shot("feed-menu", { prep: `const p = [...document.querySelectorAll('#feed .post')][1]; p.scrollIntoView({ block: "center" }); p.querySelector('.share[aria-label="עוד פעולות"]').click();` });
+await shot("set-advanced-dark", { dark: true, prep: tab("about") + ` await new Promise(r => setTimeout(r, 300)); document.querySelector('#advOpen').click();` });
 await shot("set-all", { prep: tab("feeds") + ` await new Promise(r => setTimeout(r, 300)); document.querySelector('.frow[data-id="all"] .chip').click();` });
 await shot("set-advanced", { prep: tab("about") + ` await new Promise(r => setTimeout(r, 300)); document.querySelector('#advOpen').click();` });
 await shot("wizard", { prep: `openWizard(0);` });

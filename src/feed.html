@@ -24,7 +24,7 @@
   --shimmer-hi: #202327;
 }
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme="dark"]) {
     --bg: #fff;
     --bg-hover: #f7f9f9;
     --bg-raised: #f7f9f9;
@@ -39,9 +39,25 @@
     --shimmer-hi: #f7f9f9;
   }
 }
+:root[data-theme="light"] {
+    --bg: #fff;
+    --bg-hover: #f7f9f9;
+    --bg-raised: #f7f9f9;
+    --text: #0f1419;
+    --muted: #536471;
+    --line: #eff3f4;
+    --accent: #00609c;
+    --accent-soft: rgba(0, 96, 156, .1);
+    --breaking-soft: rgba(244, 33, 46, .08);
+    --header: rgba(255, 255, 255, .85);
+    --shimmer: #eff3f4;
+    --shimmer-hi: #f7f9f9;
+}
+:root[data-theme="light"] { color-scheme: light; } :root[data-theme="dark"] { color-scheme: dark; }
 /* Inside the widgets board: let the board's own surface show through. */
 :root.embedded { --bg: #2b2d34; --bg-hover: #31333b; --header: rgba(43,45,52,.82); --bg-raised: #34363e; --line: rgba(255,255,255,.08); --shimmer: #34363e; --shimmer-hi: #3c3e47; }
-@media (prefers-color-scheme: light) { :root.embedded { --bg: #f3f3f3; --bg-hover: #ebebeb; --header: rgba(243,243,243,.85); --bg-raised: #e9e9e9; --line: rgba(0,0,0,.08); --shimmer: #e6e6e6; --shimmer-hi: #f0f0f0; } }
+@media (prefers-color-scheme: light) { :root.embedded:not([data-theme="dark"]) { --bg: #f3f3f3; --bg-hover: #ebebeb; --header: rgba(243,243,243,.85); --bg-raised: #e9e9e9; --line: rgba(0,0,0,.08); --shimmer: #e6e6e6; --shimmer-hi: #f0f0f0; } }
+:root.embedded[data-theme="light"] { --bg: #f3f3f3; --bg-hover: #ebebeb; --header: rgba(243,243,243,.85); --bg-raised: #e9e9e9; --line: rgba(0,0,0,.08); --shimmer: #e6e6e6; --shimmer-hi: #f0f0f0; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
@@ -367,13 +383,31 @@ a.src-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .cbtn:hover { border-color: var(--accent); transform: translateY(-1px); }
 .cbtn svg { width: 22px; height: 22px; fill: currentColor; }
 .cbtn img { width: 26px; height: 26px; }
+.seg3 .fs-s { font-size: 13px; } .seg3 .fs-m { font-size: 16px; } .seg3 .fs-l { font-size: 20px; }
+:root.font-s #scroller { zoom: .92; } :root.font-l #scroller { zoom: 1.12; }
+/* Compact: the picture goes small, beside the text (the first picture of a gallery). */
+:root.compact .post .col { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: start; }
+:root.compact .post .col > * { grid-column: 1; }
+:root.compact .post .col > .media { grid-column: 2; grid-row: 1 / span 4; width: 96px; height: 96px; aspect-ratio: 1; border-radius: 12px; max-height: none; }
+:root.compact .post .col > .media img, :root.compact .post .col > .media video { height: 96px; max-height: 96px; }
+:root.compact .post .col > .media.grid { display: block; } :root.compact .post .col > .media.grid > :not(:first-child) { display: none; }
+:root.compact .post .col > .media ~ .media { display: none; }
+:root.compact .post .col > .audio, :root.compact .post .col > .actions { grid-column: 1 / -1; }
+label.chip { cursor: pointer; }
+.chip.danger { color: var(--breaking); border-color: var(--breaking); }
+.nt-field-ta { width: 100%; box-sizing: border-box; margin: 6px 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-raised); color: var(--text); font: inherit; resize: vertical; }
+.mute-menu { position: absolute; bottom: calc(100% + 6px); inset-inline-end: 0; z-index: 5; display: grid; min-width: 180px; padding: 6px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); box-shadow: 0 12px 30px rgba(0,0,0,.22); }
+.mute-menu b { font-size: 12.5px; color: var(--muted); padding: 4px 8px; font-weight: 600; }
+.mute-menu button { text-align: start; padding: 7px 10px; border-radius: 8px; font-size: 14px; }
+.mute-menu button:hover { background: var(--bg-hover); }
 .row.sub { margin-inline-start: 14px; padding-inline-start: 12px; border-inline-start: 2px solid var(--line); }
 .row img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; background: var(--bg-raised); flex: none; }
 .row span { flex: 1; min-width: 0; }
 .row span small { display: block; color: var(--muted); font-size: 12px; }
 .letter { font-style: normal; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; flex: none; font-weight: 800; font-size: 15px; color: hsl(var(--h) 55% 35%); background: hsl(var(--h) 70% 90%); }
 .avatar.letter { width: 40px; height: 40px; font-size: 18px; }
-@media (prefers-color-scheme: dark) { .letter { color: hsl(var(--h) 70% 82%); background: hsl(var(--h) 35% 26%); } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .letter { color: hsl(var(--h) 70% 82%); background: hsl(var(--h) 35% 26%); } }
+:root[data-theme="dark"] .letter { color: hsl(var(--h) 70% 82%); background: hsl(var(--h) 35% 26%); }
 .google { flex: none; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; font-weight: 600; }
 .google:disabled { opacity: .55; cursor: default; }
 .via { margin-top: 6px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
@@ -605,11 +639,29 @@ button.react:hover { border-color: var(--accent); }
       </div>
     </section>
     <section data-t="display">
+      <h3>גודל טקסט</h3>
+      <div class="seg seg3" id="setFont">
+        <button data-v="s"><b class="fs-s">א</b><small>קטן</small></button>
+        <button data-v="m"><b class="fs-m">א</b><small>רגיל</small></button>
+        <button data-v="l"><b class="fs-l">א</b><small>גדול</small></button>
+      </div>
+    </section>
+    <section data-t="display">
+      <h3>צבעים</h3>
+      <div class="seg seg3" id="setTheme">
+        <button data-v="auto"><b>אוטומטי</b><small>לפי Windows</small></button>
+        <button data-v="light"><b>בהיר</b><small>תמיד</small></button>
+        <button data-v="dark"><b>כהה</b><small>תמיד</small></button>
+      </div>
+    </section>
+    <section data-t="display">
       <h3>בפיד</h3>
       <div class="row"><span>פס מבזקים<small>מבזקים רצים בראש הפיד</small></span><button class="switch" role="switch" id="setBreaking" aria-label="פס מבזקים"></button></div>
       <div class="row"><span>תגובות אימוג'י<small>מונים, ואפשרות להגיב באתרים שתומכים</small></span><button class="switch" role="switch" id="setReacts" aria-label="תגובות אימוג'י"></button></div>
       <div class="row"><span>ניגון אוטומטי של סרטונים<small>סרטון מתנגן כשהוא על המסך</small></span><button class="switch" role="switch" id="setAutoplay" aria-label="ניגון אוטומטי של סרטונים"></button></div>
       <div class="row sub" id="setSoundRow"><span>עם קול<small>בלי לחיצה. כבוי: הסרטון מתנגן מושתק</small></span><button class="switch" role="switch" id="setSound" aria-label="קול בניגון האוטומטי"></button></div>
+      <div class="row"><span>תצוגה צפופה<small>תמונות וסרטונים קטנים, יותר ידיעות במסך</small></span><button class="switch" role="switch" id="setCompact" aria-label="תצוגה צפופה"></button></div>
+      <div class="row"><span>הצגת פרסומות<small>ידיעות שהערוץ סימן כפרסומת. כבוי: לא מוצגות</small></span><button class="switch" role="switch" id="setAds" aria-label="הצגת פרסומות"></button></div>
     </section>
     <section data-t="advanced">
       <h3>זכירת המיקום</h3>
@@ -618,6 +670,16 @@ button.react:hover { border-color: var(--accent); }
         <label>ועד <input type="number" min="0" max="500" id="setKeepItems"> ידיעות חדשות</label>
       </div>
       <div class="hint">כשחוזרים ללוח בתוך הזמן הזה, ונוספו פחות ידיעות מהמספר הזה, הפיד נשאר איפה שעצרת. אחרת הוא קופץ לידיעות החדשות.</div>
+    </section>
+    <section data-t="advanced">
+      <h3>הסתרת ידיעות</h3>
+      <label class="nt-field">ידיעה שיש בה אחת מהמילים לא תוצג בפיד<small>מופרדות בפסיק</small><textarea id="setHide" rows="2" placeholder="לדוגמה: הגרלה, מבצע"></textarea></label>
+      <div id="setMutes"></div>
+    </section>
+    <section data-t="advanced">
+      <h3>רענון</h3>
+      <div class="nums"><label>בדיקה אם יש חדש כל <input type="number" min="10" max="600" id="setPoll"> שניות</label></div>
+      <div class="hint">כשהלוח פתוח. כשהוא סגור, הפיד בודק רק בשביל ההתראות והווידג'טים.</div>
     </section>
     <section data-t="advanced">
       <h3>משפטים למחיקה</h3>
@@ -631,6 +693,11 @@ button.react:hover { border-color: var(--accent); }
       <label class="nt-field">אף פעם לא הודעות שיש בהן אחת מהמילים<textarea id="ntNever" rows="2" placeholder="לדוגמה: מבצע, הגרלה"></textarea></label>
       <div class="nums"><label>איחוד הצפות מ-<input type="number" min="2" max="50" id="ntMergeAt"> הודעות בבדיקה אחת</label></div>
       <div class="row"><span>להתריע גם על פרסומות<small>הודעות שהערוץ סימן כפרסומת</small></span><button class="switch" role="switch" id="ntAds" aria-label="להתריע גם על פרסומות"></button></div>
+    </section>
+    <section data-t="advanced">
+      <h3>גיבוי, ניקוי ואיפוס</h3>
+      <div class="nt-quick"><button class="chip" id="bkSave">שמירת גיבוי לקובץ</button><label class="chip" for="bkFile">שחזור מקובץ</label><input type="file" id="bkFile" accept=".json,application/json" hidden><button class="chip" id="cacheClear">ניקוי זיכרון הפיד</button><button class="chip danger" id="resetAll">איפוס כל ההגדרות</button></div>
+      <div class="hint">הגיבוי נשמר בתיקיית המסמכים, ואפשר להעביר אותו למחשב אחר. ההתחברויות לא נכללות. ניקוי הזיכרון מוחק את הידיעות השמורות וטוען מחדש.</div>
     </section>
     <section data-t="about" class="about">
       <img id="aboutLogo" alt="" width="72" height="72">
@@ -746,7 +813,7 @@ button.react:hover { border-color: var(--accent); }
 
 <script>
 "use strict";
-const PAGE = 20, POLL_MS = 30000;
+const PAGE = 20, POLL_MS = 15000;
 const $ = (s) => document.querySelector(s);
 const LOGO = $("#logo").src;   // the product logo (brand/logo.svg), inlined in the header image
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -757,6 +824,8 @@ const ICON = {
   share: "M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z",
   muted: "M15 4.25v15.5a.75.75 0 01-1.22.58L8.24 15.9H5A2 2 0 013 13.9v-3.8a2 2 0 012-2h3.24l5.54-4.43A.75.75 0 0115 4.25zm2.3 5.03l1.7 1.7 1.7-1.7 1.06 1.06L20.06 12l1.7 1.7-1.06 1.06-1.7-1.7-1.7 1.7-1.06-1.06 1.7-1.7-1.7-1.66z",
   smile: "M12 2a10 10 0 1 0 10 10h-2a8 8 0 1 1-8-8V2zm-3.5 8a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM12 17.5c2.3 0 4.3-1.4 5.1-3.5H6.9c.8 2.1 2.8 3.5 5.1 3.5zM19 2v3h3v2h-3v3h-2V7h-3V5h3V2h2z",
+  more: "M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
+  bellOff: "M20 18.7 3.3 2 2 3.3l4.3 4.3A6.9 6.9 0 0 0 5 11.5V16l-2 2v1h14.7l2 2 1.3-1.3-1-1zM12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6.8V11.5c0-3.1-1.6-5.6-4.5-6.3V4.5a1.5 1.5 0 0 0-3 0v.7a6 6 0 0 0-1.9.8L18 15.2z",
   link: "M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z",
   camera: "M9 3 7.17 5H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.17L15 3H9zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
   film: "M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V4h-4z",
@@ -767,7 +836,7 @@ const ICON = {
 // Categories in display order. A tab shows up only when one of its sources is on.
 const CATS = [
   ["news", "חדשות"], ["yeshiva", "עולם הישיבות"], ["music", "מוזיקה"], ["torah", "תורה וחיזוק"],
-  ["economy", "כלכלה ועבודה"], ["deals", "קניות ודילים"], ["travel", "טיולים"], ["fun", "הומור ובידור"],
+  ["economy", "כלכלה ועבודה"], ["deals", "קניות ודילים"], ["travel", "טיולים"], ["fun", "הומור ובידור"], ["articles", "כתבות"],
 ];
 const CAT_NAME = Object.fromEntries(CATS);
 // kind "chat" = the channel platform hagizra.news runs on. Two builds: "thechats" (bare array, offset = older than id)
@@ -824,6 +893,13 @@ const SOURCES = [
 
   { id: "shapira", name: "מעיינות ונחלים נדירים", note: "ישראל שפירא", cat: "travel", kind: "chat", variant: "chatfree", base: "https://channel.israelshapira.com", login: true,
     logo: "https://channel.israelshapira.com/api/files/6fb78d91ede3d59ff14c838e3457eb1544e7befe" },
+
+  // Articles with pictures from the news sites' feeds (see ARTICLE_SITES), one source per site.
+  { id: "art-jdn", on: true, name: "JDN", note: "כתבות", cat: "articles", kind: "article", art: "jdn", base: "https://www.jdn.co.il", logo: "https://www.google.com/s2/favicons?domain=www.jdn.co.il&sz=64" },
+  { id: "art-kore", on: true, name: "כל רגע - כתבות", cat: "articles", kind: "article", art: "kore", base: "https://www.kore.co.il", logo: "https://www.google.com/s2/favicons?domain=www.kore.co.il&sz=64" },
+  { id: "art-hmnews", on: true, name: "המחדש - כתבות", cat: "articles", kind: "article", art: "hmnews", base: "https://hm-news.co.il", logo: "https://hm-news.co.il/wp-content/uploads/2026/06/cropped-hm-icon-1.png" },
+  { id: "art-emess", on: true, name: "אמס - כתבות", cat: "articles", kind: "article", art: "emess", base: "https://www.emess.co.il", logo: "https://www.emess.co.il/logo.svg" },
+  { id: "art-kolbarama", name: "קול ברמה", note: "ראיונות וכתבות", cat: "articles", kind: "article", art: "kolbarama", base: "https://kol-barama.co.il", logo: "https://www.google.com/s2/favicons?domain=kol-barama.co.il&sz=64" },
 
   { id: "blackcat", name: "החתול השחור", cat: "fun", kind: "chat", base: "https://black-cat.thechats.click", on: true, logo: "" },
 ];
@@ -994,6 +1070,18 @@ const ADAPTERS = {
     },
     rewind: (src, kept) => kept.length,
   },
+  // A news site's articles: one page (its feed gives the newest), each with its picture and link.
+  article: {
+    async page(src) {
+      const a = ARTICLE_SITES.find((x) => x.id === src.art);
+      const list = await loadArticles(a);
+      const items = list.filter((x) => x.title).map((x) => ({
+        src: src.id, id: [...x.url].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7), t: x.t, url: x.url,
+        norm: { title: x.title, body: x.sub, media: x.img ? [{ kind: "image", url: x.img, size: null }] : [] }, gone: false, ad: false,
+      }));
+      return { items, next: 0 };
+    },
+  },
   authenti: {
     async page(src, before) {
       const q = new URLSearchParams({ source: src.channel });
@@ -1030,7 +1118,9 @@ function tabSources(tab) {
   return enabled().filter((s) => s.cat === tab);
 }
 // "All" can leave out whole categories or single sources (they stay on in their own tabs), or be switched off.
-const allEx = () => S.allEx || (S.allEx = { cats: [], srcs: [] });
+const allEx = () => S.allEx || (S.allEx = { cats: ["articles"], srcs: [] });
+// Articles stay out of "All" until the user adds them (editing "All" in the Feeds tab); once, for older settings too.
+if (!S.artSeeded) { if (S.allEx && !S.allEx.cats.includes("articles")) S.allEx.cats.push("articles"); S.artSeeded = true; }
 const inAll = (s) => !allEx().cats.includes(s.cat) && !allEx().srcs.includes(s.id);
 // One order for every tab ("all", the categories, the user's feeds), set by dragging in the Feeds settings tab.
 function tabOrder() {
@@ -1264,6 +1354,23 @@ function fillReactions(actions, it) {
 }
 
 const keyOf = (it) => `${it.src}:${it.id}`;
+// ---------- muting a channel for a while ----------
+function muteMenu(actions, src) {
+  document.querySelectorAll(".mute-menu").forEach((m) => m.remove());
+  const m = el("div", "mute-menu");
+  m.append(el("b", null, "השתקת " + src.name));
+  for (const [label, ms] of [["לשעה", 36e5], ["עד מחר", 864e5], ["לשבוע", 7 * 864e5], ["עד שאבטל", 3650 * 864e5]]) {
+    const b = el("button", null, "🔕 " + label);
+    b.addEventListener("click", () => {
+      S.mutes = { ...(S.mutes || {}), [src.id]: Date.now() + ms }; saveSettings(); m.remove();
+      document.querySelectorAll(`#feed .post[data-key^="${CSS.escape(src.id)}:"]`).forEach((p) => p.remove());
+      toast(`${src.name} מושתק ${label}. ביטול: הגדרות, מתקדם`);
+    });
+    m.append(b);
+  }
+  actions.append(m);
+}
+addEventListener("pointerdown", (e) => { if (!e.target.closest(".mute-menu")) document.querySelectorAll(".mute-menu").forEach((m) => m.remove()); }, true);
 // ---------- links out ----------
 // The page of one item on its site; the channel's page where a site has none (see sources/NOTES.md).
 // Each pattern is the one the site's own "copy link" builds (checked 11.11.26 on every platform).
@@ -1289,7 +1396,7 @@ function render(it, fresh) {
   const post = el("article", "post" + (it.breaking ? " breaking" : "") + (fresh ? " fresh" : ""));
   post.dataset.key = keyOf(it);
   const av = avatar(src, "avatar");
-  const col = el("div");
+  const col = el("div", "col");
 
   const meta = el("div", "meta");
   const name = el("a", "src-name", src.name); name.href = linkOf(it); name.title = "פתיחת הידיעה בדפדפן";
@@ -1332,6 +1439,9 @@ function render(it, fresh) {
     file.addEventListener("click", () => copyVideoFile(vid.url, file));
     actions.append(file);
   }
+  const mute = el("button", "share"); mute.innerHTML = svg(ICON.more); mute.title = "עוד"; mute.setAttribute("aria-label", "עוד פעולות");
+  mute.addEventListener("click", (e) => { e.stopPropagation(); muteMenu(actions, src); });
+  actions.append(mute);
   const link = el("button", "share"); link.innerHTML = svg(ICON.link); link.title = "העתקת הקישור לידיעה"; link.setAttribute("aria-label", link.title);
   link.addEventListener("click", () => navigator.clipboard.writeText(linkOf(it)).then(() => toast("הקישור הועתק"), () => toast("ההעתקה לא הצליחה")));
   actions.append(link);
@@ -1346,7 +1456,16 @@ function render(it, fresh) {
 }
 
 // ---------- the stream: several sources merged newest-first ----------
-const visible = (it) => !it.gone && !it.ad;
+// What the feed shows: not removed, not an ad (unless asked), not muted, no hidden word.
+const hideWords = () => words(S.hideWords || "");
+const muted = (srcId) => (S.mutes || {})[srcId] > Date.now();
+function visible(it) {
+  if (it.gone || (it.ad && !S.showAds) || muted(it.src)) return false;
+  const hw = hideWords();
+  if (!hw.length) return true;
+  const m = norm(it), t = (m.title || "") + " " + (m.body || "");
+  return !hw.some((w) => t.includes(w));
+}
 let tab = "all", stream = null, seen = new Set(), pending = [], loading = false;
 
 function newStream(srcs) {
@@ -1484,11 +1603,20 @@ function applyOrder() {
   document.documentElement.classList.toggle("chat", chat());
   for (const l of ["column", "wide"]) document.documentElement.classList.toggle("lay-" + l, S.layout === l);
   document.documentElement.classList.toggle("no-reacts", S.reactions === false);
+  applyLook();
   $("#pill").classList.toggle("up", !chat()); $("#pill").classList.toggle("down", chat());
   $("#pill").style.setProperty("--pill-top", ($(".top").offsetHeight + 12) + "px");
   toEdge();
 }
 
+// Text size, colours, compact view: classes and an attribute on <html>.
+function applyLook() {
+  const r = document.documentElement;
+  for (const f of ["s", "l"]) r.classList.toggle("font-" + f, S.font === f);
+  r.classList.toggle("compact", !!S.compact);
+  if (S.theme === "light" || S.theme === "dark") r.dataset.theme = S.theme; else delete r.dataset.theme;
+}
+applyLook();
 // ---------- refresh ----------
 async function poll(force = false) {
   checkVersion();
@@ -1887,6 +2015,13 @@ function buildSettings() {
   $("#setSound").setAttribute("aria-checked", S.autoSound === true);
   $("#setSoundRow").hidden = S.autoplay === false;
   $("#setKeepSec").value = S.keepSec; $("#setKeepItems").value = S.keepItems;
+  document.querySelectorAll("#setFont button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.font || "m")));
+  document.querySelectorAll("#setTheme button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.theme || "auto")));
+  $("#setCompact").setAttribute("aria-checked", !!S.compact);
+  $("#setAds").setAttribute("aria-checked", !!S.showAds);
+  $("#setHide").value = S.hideWords || "";
+  $("#setPoll").value = S.pollSec || POLL_MS / 1000;
+  buildMutes();
   buildCuts();
   buildNotify();
   buildAbout();
@@ -1967,6 +2102,53 @@ $("#cutAdd").addEventListener("click", () => {
 });
 $("#cutText").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#cutAdd").click(); });
 document.querySelectorAll("#setLayout button").forEach((b) => b.addEventListener("click", () => { S.layout = b.dataset.v; saveSettings(); buildSettings(); applyOrder(); }));
+document.querySelectorAll("#setFont button").forEach((b) => b.addEventListener("click", () => { S.font = b.dataset.v; saveSettings(); buildSettings(); applyLook(); }));
+document.querySelectorAll("#setTheme button").forEach((b) => b.addEventListener("click", () => { S.theme = b.dataset.v; saveSettings(); buildSettings(); applyLook(); }));
+$("#setCompact").addEventListener("click", () => { S.compact = !S.compact; saveSettings(); buildSettings(); applyLook(); });
+$("#setAds").addEventListener("click", () => { S.showAds = !S.showAds; saveSettings(); buildSettings(); dirty = true; });
+$("#setHide").addEventListener("change", (e) => { S.hideWords = e.target.value; saveSettings(); dirty = true; });
+$("#setPoll").addEventListener("change", (e) => { S.pollSec = Math.min(600, Math.max(10, +e.target.value || 30)); saveSettings(); buildSettings(); });
+// Muted channels (from a post's menu): listed in Advanced, each can be unmuted.
+function buildMutes() {
+  const box = $("#setMutes"); box.replaceChildren();
+  const now = Date.now(), list = Object.entries(S.mutes || {}).filter(([id, t]) => t > now && byId(id));
+  if (!list.length) return;
+  box.append(el("div", "acct-group", "ערוצים מושתקים"));
+  for (const [id, t] of list) {
+    const s = byId(id), row = el("div", "row"), txt = el("span", null, s.name);
+    txt.append(el("small", null, t > now + 300 * 864e5 ? "עד שתבטל" : "עד " + fmtFull.format(t)));
+    const b = el("button", "chip", "ביטול");
+    b.addEventListener("click", () => { delete S.mutes[id]; saveSettings(); dirty = true; buildMutes(); });
+    row.append(avatar(s), txt, b); box.append(row);
+  }
+}
+// Backup: the settings (without sign-ins) to the clipboard, and back.
+const BACKUP_KEYS = ["hz-settings", "hz-authenti-channels", "hz-mine"];
+$("#bkSave").addEventListener("click", async () => {
+  const data = {}; for (const k of BACKUP_KEYS) { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} }
+  const r = await fetch("/winfeed/backup?d=" + encodeURIComponent(JSON.stringify({ hafeed: 1, data }))).catch(() => null);
+  toast(r && r.ok ? "הגיבוי נשמר בתיקיית המסמכים: " + (await r.text()) : "השמירה לא הצליחה");
+});
+$("#bkFile").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const b = JSON.parse(await f.text());
+    if (!b || b.hafeed !== 1 || !b.data) throw 0;
+    for (const [k, v] of Object.entries(b.data)) if (BACKUP_KEYS.includes(k)) localStorage.setItem(k, v);
+    location.reload();
+  } catch { toast("זה לא קובץ גיבוי של הפיד"); }
+});
+$("#cacheClear").addEventListener("click", () => {
+  try { Object.keys(localStorage).filter((k) => k.startsWith("hz-cache-")).forEach((k) => localStorage.removeItem(k)); } catch {}
+  location.reload();
+});
+// Reset asks twice: the second click within 4 seconds.
+$("#resetAll").addEventListener("click", (e) => {
+  const b = e.currentTarget;
+  if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "בטוח? לחץ שוב"; setTimeout(() => { delete b.dataset.sure; b.textContent = "איפוס כל ההגדרות"; }, 4000); return; }
+  try { Object.keys(localStorage).filter((k) => k.startsWith("hz-")).forEach((k) => localStorage.removeItem(k)); } catch {}
+  location.reload();
+});
 $("#setAutoplay").addEventListener("click", () => {
   S.autoplay = S.autoplay === false; saveSettings(); buildSettings();
   if (!S.autoplay) document.querySelectorAll("video").forEach((v) => { if (!v.controls) v.pause(); });
@@ -2288,10 +2470,14 @@ function wImg(url, size, png) {
 const wItem = (it) => {
   const s = byId(it.src), m = norm(it);
   const lines = [m.title, ...(m.body || "").split("\n")].map((x) => (x || "").trim()).filter(Boolean);
-  const text = (lines[0] || "").slice(0, 220), sub = (lines[1] || "").slice(0, 300);
+  const text = (lines[0] || "").slice(0, 220);
+  let sub = (lines[1] || "").slice(0, 300);
   // A short headline ("רשמית") says little alone: rows show it joined to the next line.
   const line = text.length < 30 && sub ? `${text}: ${sub}`.slice(0, 260) : "";
-  return { key: keyOf(it), n: s.name, logo: "", t: it.t || 0, title: text, sub, line, img: m.media.find((x) => x.kind === "image")?.url || "", url: linkOf(it), brk: !!it.breaking };
+  const price = s.cat === "deals" ? lines.slice(1).find((l) => /₪|מחיר/.test(l)) : "";
+  if (price) sub = price.slice(0, 120);
+  const n = it.catName ? `${it.catName} · ${s.name}` : it.popular ? `${s.name} · 🔥 ${it.popular}` : s.name;
+  return { key: keyOf(it), n, logo: "", t: it.t || 0, title: text, sub, line, img: m.media.find((x) => x.kind === "image")?.url || "", url: linkOf(it), brk: !!it.breaking };
 };
 async function wLoad(list, pages = 1) {
   if (list === "breaking") {
@@ -2300,6 +2486,43 @@ async function wLoad(list, pages = 1) {
   }
   // The headline widget: the newest items that have a picture (from a deeper look, 3 pages a source).
   if (list.startsWith("top:articles:")) return articleList(list.slice(13));
+  // The items of every channel that is on, a few pages deep: for "popular", "per category" and search.
+  const recent = async (pages) => (await Promise.all(enabled().filter((s) => s.cat !== "articles").map(async (s) => {
+    let out = [], cur;
+    for (let i = 0; i < pages; i++) {
+      const r = await ADAPTERS[s.kind].page(s, cur).catch(() => null);
+      if (!r) break; out = out.concat(r.items); cur = r.next; if (!cur) break;
+    }
+    return out;
+  }))).flat().filter(visible);
+  if (list === "popular") {
+    // Reactions per hour since posting (an hour at least), over the last day: what is hot now, not what piled up.
+    const since = Date.now() - 24 * 36e5, total = (it) => Object.values(it.reactions || {}).reduce((a, n) => a + (+n || 0), 0);
+    const rate = (it) => total(it) / Math.max(1, (Date.now() - it.t) / 36e5);
+    return (await recent(1)).filter((it) => it.t > since && total(it) > 0).sort((a, b) => rate(b) - rate(a)).slice(0, 6)
+      .map((it) => Object.assign(it, { popular: total(it) }));
+  }
+  if (list === "cats") {
+    const all = await recent(1);
+    return orderedCats().map(([k, name]) => {
+      const it = all.filter((x) => byId(x.src)?.cat === k).sort((a, b) => b.t - a.t)[0];
+      return it && Object.assign(it, { catName: name });
+    }).filter(Boolean).sort((a, b) => b.t - a.t);
+  }
+  if (list === "deal") {
+    // The five newest deals with a picture; the widget turns between them.
+    const deals = await Promise.all(enabled().filter((s) => s.cat === "deals").map((s) => ADAPTERS[s.kind].page(s).then((r) => r.items, () => [])));
+    return deals.flat().filter(visible).filter((it) => norm(it).media.some((m) => m.kind === "image")).sort((a, b) => b.t - a.t).slice(0, 5);
+  }
+  if (list.startsWith("search:")) {
+    const q = list.slice(7).trim();
+    if (!q) return [];
+    const words = q.split(/\s+/);
+    const arts = (await Promise.all(ARTICLE_SITES.map((a) => loadArticles(a).then((l) => l.map((x) => ({ ...x, n: a.name, site: a })), () => [])))).flat();
+    const hit = (t) => words.every((w) => t.includes(w));
+    return [...(await recent(3)).filter((it) => { const m = norm(it); return hit(`${m.title} ${m.body}`); }), ...arts.filter((x) => hit(`${x.title} ${x.sub}`))]
+      .sort((a, b) => b.t - a.t).slice(0, 6);
+  }
   if (list.startsWith("top:")) {
     const all = await wLoad(list.slice(4), 3);
     const pics = all.filter((it) => norm(it).media.some((m) => m.kind === "image"));
@@ -2678,7 +2901,8 @@ addEventListener("blur", () => document.querySelectorAll("video").forEach((v) =>
 // ---------- boot ----------
 new IntersectionObserver((e) => { if (e[0].isIntersecting) loadMore(); }, { root: scroller, rootMargin: "800px" }).observe($("#sentinel"));
 setInterval(() => document.querySelectorAll("#feed time[data-t]").forEach((t) => (t.textContent = ago(+t.dataset.t))), 30000);
-setInterval(() => { if (!document.hidden) poll(); }, POLL_MS);
+// ponytail: one self-scheduling timer, so a new refresh rate applies from the next round.
+(function pollLoop() { if (!document.hidden) poll(); setTimeout(pollLoop, Math.max(10, +S.pollSec || POLL_MS / 1000) * 1000); })();
 checkVersion();
 refreshAuthenti();
 {

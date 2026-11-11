@@ -51,7 +51,7 @@ fn data() -> Value {
 /// What the page should load for the widgets: {"lists":[...],"refresh":bool}. Only for widgets on the board now.
 pub fn need() -> String {
     let w = WIDGETS.lock().unwrap();
-    let mut lists: Vec<String> = w.values().filter(|x| x.active).map(list_of).collect();
+    let mut lists: Vec<String> = w.values().filter(|x| x.active).map(list_of).filter(|l| l != "search:").collect();
     lists.sort();
     lists.dedup();
     let goto = std::mem::take(&mut *GOTO.lock().unwrap());
@@ -81,7 +81,12 @@ pub fn push(body: &str) {
 
 /// The list a widget shows: the breaking news, the headline's pictures ("top:<pick>"), or the pick itself.
 fn list_of(w: &W) -> String {
-    match w.kind.as_str() { "breaking" => "breaking".into(), "top" => format!("top:{}", w.pick), _ => w.pick.clone() }
+    match w.kind.as_str() {
+        "breaking" | "popular" | "cats" | "deal" => w.kind.clone(),
+        "top" => format!("top:{}", w.pick),
+        // search: the query is the list ("search:<words>"); none yet = nothing to load
+        _ => w.pick.clone(),
+    }
 }
 fn ago(t: i64) -> String {
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0);
@@ -205,6 +210,7 @@ pub fn render(w: &W) -> String {
     }
     let list_id = list_of(w);
     let list = items(&list_id, 6);
+    if w.kind == "search" { return search_card(w, &list, data()["lists"].get(&list_id).is_some()); }
     // The channel widget is titled with what it shows (the board draws the title row).
     let head = if w.kind == "channel" { json!(choice_name(&w.pick)) } else { Value::Null };
     if list.is_empty() {
@@ -212,7 +218,21 @@ pub fn render(w: &W) -> String {
         let msg = if !known { WAIT } else if w.kind == "breaking" { "אין מבזקים חדשים כרגע." } else { "אין כאן ידיעות כרגע." };
         return card(empty(msg), json!([]), head);
     }
-    let body = if w.kind == "top" {
+    let body = if w.kind == "deal" {
+        // The five newest deals, turning every 15 seconds: picture, product, price line.
+        let n = list.len().min(5);
+        let at = TURN.load(Ordering::Relaxed) % n;
+        let it = &list[at];
+        match w.size {
+            WidgetSize::Small => json!([lead("deal", it, "Default", 3, 0, 0)]),
+            WidgetSize::Medium => json!([lead_side("deal", it, 3), dots(n, at)]),
+            _ => json!([lead("deal", it, "Medium", 3, 220, 3), dots(n, at)]),
+        }
+    } else if w.kind == "cats" {
+        // One line per category: its newest item.
+        let take = match w.size { WidgetSize::Small => 1, WidgetSize::Medium => 3, _ => 4 };
+        Value::Array(list.iter().take(take).map(|it| row("cats", it, if w.size == WidgetSize::Small { 3 } else { 2 })).collect())
+    } else if w.kind == "top" {
         let n = list.len().min(10);
         let at = TURN.load(Ordering::Relaxed) % n;
         let it = &list[at];
@@ -247,6 +267,25 @@ pub fn render(w: &W) -> String {
     card(body, json!([]), head)
 }
 
+/// The search widget: a box with a search button, then what was found (the board draws no keyboard
+/// focus tricks; Enter in the box also searches).
+fn search_card(w: &W, list: &[Value], loaded: bool) -> String {
+    let q = w.pick.strip_prefix("search:").unwrap_or("");
+    let mut body = vec![json!({ "type": "Input.Text", "id": "q", "value": q, "placeholder": "מילה לחיפוש בכל הערוצים",
+        "inlineAction": { "type": "Action.Execute", "verb": "search", "title": "חיפוש" } })];
+    let take = match w.size { WidgetSize::Small => 0, WidgetSize::Medium => 2, _ => 4 };
+    if q.is_empty() {
+        if w.size != WidgetSize::Small { body.extend(empty("חיפוש בידיעות האחרונות של הערוצים הדלוקים.").as_array().cloned().unwrap_or_default()); }
+    } else if list.is_empty() {
+        body.extend(empty(if loaded { "לא נמצאו ידיעות." } else { "מחפש..." }).as_array().cloned().unwrap_or_default());
+    } else if take == 0 {
+        body.push(json!({ "type": "TextBlock", "text": format!("נמצאו {} ידיעות. הגדילו את הווידג'ט כדי לראות אותן.", list.len()), "wrap": true, "isSubtle": true, "spacing": "Small" }));
+    } else {
+        body.extend(list.iter().take(take).map(|it| row("search", it, 2)));
+    }
+    card(Value::Array(body), json!([]), Value::Null)
+}
+
 fn send(id: &str, w: &W) {
     let template = render(w);
     let r = (|| -> windows_core::Result<()> {
@@ -260,7 +299,7 @@ fn send(id: &str, w: &W) {
 }
 fn update_all(only_top: bool) {
     let w = WIDGETS.lock().unwrap();
-    for (id, x) in w.iter().filter(|(_, x)| x.active && (!only_top || x.kind == "top")) { send(id, x); }
+    for (id, x) in w.iter().filter(|(_, x)| x.active && (!only_top || x.kind == "top" || x.kind == "deal")) { send(id, x); }
 }
 
 fn from_ctx(ctx: &WidgetContext, custom: &str) -> windows_core::Result<(String, W)> {
@@ -269,6 +308,7 @@ fn from_ctx(ctx: &WidgetContext, custom: &str) -> windows_core::Result<(String, 
         .unwrap_or_default();
     let pick = match (kind.as_str(), pick.as_str()) {
         ("top", p) if !p.starts_with("articles:") => "articles:all".into(),
+        ("search", p) if !p.starts_with("search:") => "search:".into(),
         (_, "") => "tab:all".into(),
         _ => pick,
     };
@@ -328,6 +368,11 @@ impl IWidgetProvider_Impl for Provider_Impl {
             "save" => { if let Some(p) = input["pick"].as_str() { x.pick = p.to_string(); } x.customizing = false; REFRESH.store(true, Ordering::Relaxed); }
             "cancel" => x.customizing = false,
             "refresh" => REFRESH.store(true, Ordering::Relaxed),
+            "search" => {
+                let q: String = input["q"].as_str().unwrap_or("").trim().chars().take(60).collect();
+                x.pick = format!("search:{q}");
+                REFRESH.store(true, Ordering::Relaxed);
+            }
             // The feed is another page of the board; the page jumps to the item when it shows (see feed.html).
             "open" => { if let Some(k) = input["key"].as_str() { *GOTO.lock().unwrap() = k.to_string(); } return Ok(()); }
             _ => {}
@@ -365,9 +410,13 @@ impl IWidgetProvider2_Impl for Provider_Impl {
 
 /// Dev aid (hagizra-widget.exe --cards <file>): every widget in every size, from the last pushed data, for
 /// tools/widget-preview.html. The board itself never calls this.
-pub fn dump(path: &str) {
+pub fn dump(path: &str, data_file: Option<&str>) {
+    // A data file from the dev page (tools/dev-server.mjs, POST /widgets/data) instead of the last push.
+    if let Some(v) = data_file.and_then(|f| std::fs::read(f).ok()).and_then(|b| serde_json::from_slice::<Value>(&b).ok()) {
+        *DATA.lock().unwrap() = Some(json!({ "lists": v }));
+    }
     let mut out = vec![];
-    for (kind, pick) in [("breaking", "breaking"), ("channel", "tab:all"), ("top", "articles:all")] {
+    for (kind, pick) in [("breaking", "breaking"), ("channel", "tab:all"), ("top", "articles:all"), ("popular", ""), ("cats", ""), ("deal", ""), ("search", "search:בחירות")] {
         for (name, size) in [("small", WidgetSize::Small), ("medium", WidgetSize::Medium), ("large", WidgetSize::Large)] {
             let w = W { kind: kind.into(), size, pick: pick.into(), active: true, customizing: false };
             out.push(json!({ "kind": kind, "size": name, "card": serde_json::from_str::<Value>(&render(&w)).unwrap_or(Value::Null) }));
