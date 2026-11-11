@@ -51,7 +51,7 @@ fn data() -> Value {
 /// What the page should load for the widgets: {"lists":[...],"refresh":bool}. Only for widgets on the board now.
 pub fn need() -> String {
     let w = WIDGETS.lock().unwrap();
-    let mut lists: Vec<String> = w.values().filter(|x| x.active).map(list_of).filter(|l| l != "search:").collect();
+    let mut lists: Vec<String> = w.values().filter(|x| x.active).map(list_of).map(|l| if l == "search:" { "popular".into() } else { l }).collect();
     lists.sort();
     lists.dedup();
     let goto = std::mem::take(&mut *GOTO.lock().unwrap());
@@ -209,7 +209,7 @@ pub fn render(w: &W) -> String {
         return card(body, actions, Value::Null);
     }
     let list_id = list_of(w);
-    let list = items(&list_id, 6);
+    let list = items(&list_id, 8);
     if w.kind == "search" { return search_card(w, &list, data()["lists"].get(&list_id).is_some()); }
     // The channel widget is titled with what it shows (the board draws the title row).
     let head = if w.kind == "channel" { json!(choice_name(&w.pick)) } else { Value::Null };
@@ -230,7 +230,7 @@ pub fn render(w: &W) -> String {
         }
     } else if w.kind == "cats" {
         // One line per category: its newest item.
-        let take = match w.size { WidgetSize::Small => 1, WidgetSize::Medium => 3, _ => 4 };
+        let take = match w.size { WidgetSize::Small => 1, WidgetSize::Medium => 3, _ => 6 };
         Value::Array(list.iter().take(take).map(|it| row("cats", it, if w.size == WidgetSize::Small { 3 } else { 2 })).collect())
     } else if w.kind == "top" {
         let n = list.len().min(10);
@@ -258,8 +258,11 @@ pub fn render(w: &W) -> String {
                 Value::Array(b)
             }
             _ => {
-                let mut b = vec![lead(kind, &list[0], "Medium", 3, 168, 2)];
-                b.extend(list.iter().skip(1).take(3).map(|it| row(kind, it, 2)));
+                // No room may stay empty: without a picture, more rows; with few items, longer rows.
+                let rows = if pic(&list[0]["img"]).is_empty() { 5 } else { 3 };
+                let lines = if list.len() <= 4 { 4 } else { 2 };
+                let mut b = vec![lead(kind, &list[0], "Medium", 3, 168, if lines == 4 { 4 } else { 2 })];
+                b.extend(list.iter().skip(1).take(rows).map(|it| row(kind, it, lines)));
                 Value::Array(b)
             }
         }
@@ -275,7 +278,12 @@ fn search_card(w: &W, list: &[Value], loaded: bool) -> String {
         "inlineAction": { "type": "Action.Execute", "verb": "search", "title": "חיפוש" } })];
     let take = match w.size { WidgetSize::Small => 0, WidgetSize::Medium => 2, _ => 4 };
     if q.is_empty() {
-        if w.size != WidgetSize::Small { body.extend(empty("חיפוש בידיעות האחרונות של הערוצים הדלוקים.").as_array().cloned().unwrap_or_default()); }
+        // Nothing asked yet: what is hot now, so the widget is not empty.
+        let hot = items("popular", take);
+        if take > 0 && !hot.is_empty() {
+            body.push(json!({ "type": "TextBlock", "text": "חם עכשיו", "size": "Small", "weight": "Bolder", "isSubtle": true, "spacing": "Medium" }));
+            body.extend(hot.iter().map(|it| row("search", it, 2)));
+        } else if w.size != WidgetSize::Small { body.extend(empty("חיפוש בידיעות האחרונות של הערוצים הדלוקים.").as_array().cloned().unwrap_or_default()); }
     } else if list.is_empty() {
         body.extend(empty(if loaded { "לא נמצאו ידיעות." } else { "מחפש..." }).as_array().cloned().unwrap_or_default());
     } else if take == 0 {

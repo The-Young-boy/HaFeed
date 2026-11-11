@@ -61,6 +61,8 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
+/* In the board: the board's own backdrop shows through, the same slight transparency as the widgets. */
+:root.embedded, :root.embedded body { background: transparent; }
 body {
   font: 15px/1.45 "Segoe UI", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -2476,7 +2478,7 @@ const wItem = (it) => {
   const line = text.length < 30 && sub ? `${text}: ${sub}`.slice(0, 260) : "";
   const price = s.cat === "deals" ? lines.slice(1).find((l) => /₪|מחיר/.test(l)) : "";
   if (price) sub = price.slice(0, 120);
-  const n = it.catName ? `${it.catName} · ${s.name}` : it.popular ? `${s.name} · 🔥 ${it.popular}` : s.name;
+  const n = it.catName ? `${it.catName} · ${s.name}` : it.popular ? `${s.name} · ${it.popular} תגובות` : s.name;
   return { key: keyOf(it), n, logo: "", t: it.t || 0, title: text, sub, line, img: m.media.find((x) => x.kind === "image")?.url || "", url: linkOf(it), brk: !!it.breaking };
 };
 async function wLoad(list, pages = 1) {
@@ -2504,10 +2506,10 @@ async function wLoad(list, pages = 1) {
   }
   if (list === "cats") {
     const all = await recent(1);
-    return orderedCats().map(([k, name]) => {
-      const it = all.filter((x) => byId(x.src)?.cat === k).sort((a, b) => b.t - a.t)[0];
-      return it && Object.assign(it, { catName: name });
-    }).filter(Boolean).sort((a, b) => b.t - a.t);
+    // The newest of each category first, then the second newest of each: few categories still fill the widget.
+    const per = orderedCats().map(([k, name]) => all.filter((x) => byId(x.src)?.cat === k).sort((a, b) => b.t - a.t).slice(0, 3)
+      .map((it) => Object.assign(it, { catName: name })));
+    return [0, 1, 2].flatMap((i) => per.map((l) => l[i]).filter(Boolean).sort((a, b) => b.t - a.t));
   }
   if (list === "deal") {
     // The five newest deals with a picture; the widget turns between them.
