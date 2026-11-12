@@ -1913,7 +1913,9 @@ let inGallery = false;   // the pictures grid is open (see showPics)
 function newStream(srcs) {
   return { lanes: srcs.map((src) => ({ src, buf: [], cursor: 0, done: false })), gen: Symbol() };
 }
-async function fill(lane) {
+// One request per lane at a time: a lane that is still loading is not asked again.
+const fill = (lane) => (lane.pending ||= fillNow(lane).finally(() => { lane.pending = null; }));
+async function fillNow(lane) {
   try {
     const { items: raw, next } = await ADAPTERS[lane.src.kind].page(lane.src, lane.cursor);
     if (!raw.length) { lane.done = true; return; }
@@ -1931,8 +1933,14 @@ async function next(st, n) {
   const out = [];
   let rounds = 0;
   while (out.length < n && rounds < 12) {
-    const need = st.lanes.filter((l) => !l.done && !l.buf.length);
-    if (need.length) { rounds++; await Promise.all(need.map(fill)); }
+    const need = st.lanes.filter((l) => !l.done && !l.buf.length && !l.late);
+    if (need.length) {
+      rounds++;
+      // A slow channel does not hold the page: after 5 seconds it goes on with the channels that answered, and the
+      // slow one's items are put in their place when it answers (placeLate).
+      const late = await Promise.race([Promise.all(need.map(fill)).then(() => false), sleep(5000).then(() => true)]);
+      if (late) for (const l of need) if (l.pending && !l.late) { l.late = true; l.pending.then(() => { l.late = false; placeLate(st, l); }); }
+    }
     const heads = st.lanes.filter((l) => l.buf.length);
     if (!heads.length) break;
     const lane = heads.reduce((a, b) => (b.buf[0].t > a.buf[0].t ? b : a));
@@ -1942,6 +1950,23 @@ async function next(st, n) {
   return out;
 }
 
+// A late lane's items, each before the first shown post that is older; the older ones wait for scrolling.
+function placeLate(st, lane) {
+  if (st !== stream || inSaved || inGallery) return;
+  const posts = [...document.querySelectorAll("#feed .post[data-key]")];
+  if (!posts.length) return loadMore();   // nothing was shown yet
+  const bottom = posts.at(-1)._item?.t ?? 0;
+  const take = lane.buf.filter((it) => it.t >= bottom && !seen.has(keyOf(it)));
+  if (!take.length) return;
+  lane.buf = lane.buf.filter((it) => !take.includes(it));
+  for (const it of take) {
+    seen.add(keyOf(it));
+    const before = posts.find((p) => (p._item?.t ?? 0) < it.t), node = render(it);
+    before ? before.before(node) : $("#feed").append(node);
+  }
+  $("#empty").hidden = true;
+  setOnline(true);
+}
 async function loadMore() {
   if (loading || !stream || inSaved || inGallery) return;
   const st = stream; loading = true; $("#loader").hidden = false;
@@ -1951,6 +1976,7 @@ async function loadMore() {
     const frag = document.createDocumentFragment();
     for (const it of items) { seen.add(keyOf(it)); frag.append(render(it)); }
     $("#feed").append(frag);
+    if (items.length) $("#empty").hidden = true;
     rememberBreaking(items);
     if (!$("#feed .post:not(.skeleton)")) {
       if (st.lanes.length && st.lanes.every((l) => l.failed)) showError(); else $("#empty").hidden = false;
@@ -2202,7 +2228,9 @@ $("#pill").addEventListener("click", jumpToNewest);
 $("#refresh").addEventListener("click", async () => {
   const b = $("#refresh"); if (b.classList.contains("spin1")) return;
   b.classList.add("spin1");
-  try { await poll(true); toEdge(true); } finally { b.classList.remove("spin1"); }
+  // The provider answers at once with what it has and asks the sites in the background: a second look 2 seconds
+  // later brings what they answered.
+  try { await poll(true); toEdge(true); await sleep(2000); await poll(true); } finally { b.classList.remove("spin1"); }
 });
 $(".brand h1").addEventListener("click", () => toEdge(true));
 $("#logo").addEventListener("click", () => toEdge(true));
@@ -4515,6 +4543,7 @@ document.addEventListener("visibilitychange", async () => {
   clearTimeout(releaseTimer);
   if (released) { released = false; openTab(S.tab); return; }
   await poll();
+  setTimeout(() => { if (!document.hidden) poll(); }, 2000);   // what the sites answered in the background
   if (hiddenAt && (Date.now() - hiddenAt > S.keepSec * 1000 || pending.length >= S.keepItems)) jumpToNewest();
 });
 addEventListener("pagehide", pauseAll);
