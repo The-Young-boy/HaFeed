@@ -63,6 +63,10 @@
 html, body { margin: 0; background: var(--bg); color: var(--text); }
 /* In the board: the board's own backdrop shows through, the same slight transparency as the widgets. */
 :root.embedded, :root.embedded body { background: transparent; }
+/* The board's backdrop follows Windows. A theme set against it (light on dark Windows, or the other way) gets a solid
+   background, else the page's text sits on the wrong backdrop. */
+@media (prefers-color-scheme: dark) { :root.embedded[data-theme="light"] body { background: var(--bg); } }
+@media (prefers-color-scheme: light) { :root.embedded[data-theme="dark"] body { background: var(--bg); } }
 body {
   font: 15px/1.45 var(--face, "Segoe UI"), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -119,9 +123,25 @@ a:hover { text-decoration: underline; }
 /* ---------- post ---------- */
 .post {
   display: grid; grid-template-columns: 40px 1fr; gap: 12px;
-  padding: 12px 16px; border-bottom: 1px solid var(--line);
-  transition: background .2s;
+  padding: var(--py, 12px) var(--px, 16px); border-bottom: 1px solid var(--line);
+  transition: background .2s; position: relative;
 }
+/* Density (Display): roomy / normal / dense. Dense also makes pictures small thumbnails (the "compact" rules). */
+:root.roomy .post { --py: 18px; --px: 20px; gap: 14px; }
+:root.compact .post { --py: 7px; --px: 14px; gap: 10px; }
+/* A site that does not answer: a red dot on the channel's logo. */
+.post.down::before { content: ""; position: absolute; z-index: 1; top: calc(var(--py, 12px) + 28px); inset-inline-start: calc(var(--px, 16px) + 28px);
+  width: 9px; height: 9px; border-radius: 50%; background: #d13438; border: 2px solid var(--bg); }
+.down-line { color: #d13438 !important; }
+.offline { padding: 7px 12px; text-align: center; font-size: 13px; color: var(--muted); background: var(--bg-raised); border-bottom: 1px solid var(--line); }
+.meta .edited { color: var(--muted); font: inherit; padding: 0; white-space: nowrap; }
+.meta .edited:hover { text-decoration: underline; }
+.edits { padding: 0 18px 16px; }
+.edits .ver { padding: 10px 0; border-bottom: 1px solid var(--line); line-height: 1.6; }
+.edits .ver:last-child { border-bottom: 0; }
+.edits .ver small { display: block; color: var(--muted); font-size: 12.5px; margin-bottom: 4px; }
+.edits .ver.now small { color: var(--accent); font-weight: 700; }
+.edits .ver:not(.now) > div { color: var(--muted); }
 .post:hover { background: var(--bg-hover); }
 /* Off-screen posts are not laid out or painted at all. */
 #feed > .post { content-visibility: auto; contain-intrinsic-size: auto 260px; }
@@ -589,6 +609,14 @@ label.chip { cursor: pointer; }
 .switch::after { content: ""; position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: right .2s; }
 .switch[aria-checked="true"] { background: var(--accent); }
 .switch[aria-checked="true"]::after { right: 21px; }
+.switch[aria-checked="mixed"] { background: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.switch[aria-checked="mixed"]::after { right: 12px; }
+.chev { width: 28px; height: 28px; border-radius: 8px; color: var(--muted); display: grid; place-items: center; flex: none; }
+.chev:hover { background: var(--bg-hover); }
+.chev svg { width: 18px; height: 18px; fill: currentColor; transition: rotate .2s; }
+.chev[aria-expanded="true"] svg { rotate: 180deg; }
+#setTextOnlyList .row { padding-inline-start: 12px; }
+#setTextOnlyList .avatar { width: 26px; height: 26px; }
 .switch:disabled { opacity: .4; cursor: not-allowed; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .seg button { padding: 12px; border-radius: 12px; border: 1px solid var(--line); text-align: start; }
@@ -605,7 +633,7 @@ label.chip { cursor: pointer; }
 /* ---------- first-run wizard ---------- */
 .wiz { position: fixed; inset: 0; z-index: 45; display: grid; place-items: center; padding: 16px; background: var(--bg); overflow-y: auto; }
 .wiz-card { width: min(560px, 100%); display: flex; flex-direction: column; gap: 6px; min-height: min(600px, calc(100vh - 32px)); }
-.wiz-step[data-step="0"], .wiz-step[data-step="4"] { justify-content: center; }
+.wiz-step[data-step="0"], .wiz-step[data-step="5"] { justify-content: center; }
 .wiz-dots { display: flex; gap: 6px; justify-content: center; padding: 6px 0 14px; }
 .wiz-dots i { width: 7px; height: 7px; border-radius: 999px; background: var(--line); transition: width .3s, background .3s; }
 .wiz-dots i.past { background: var(--accent-soft); }
@@ -644,6 +672,28 @@ label.chip { cursor: pointer; }
 .wiz-opt span { flex: 1; }
 .wiz-opt b { display: block; font-size: 15px; }
 .wiz-opt small { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.wiz-via { grid-template-columns: repeat(4, 1fr); margin: 4px 0 8px; }
+.wiz-via button { display: grid; justify-items: center; text-align: center; gap: 2px; padding: 10px 6px; }
+#wizNotify .row { padding: 6px 2px; }
+.wiz-sw { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.wiz-sw button { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+.wiz-sw button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text); }
+.wiz-sw svg { width: 14px; height: 14px; fill: #fff; }
+.wiz-widgets { margin: 14px auto 0; max-width: 460px; display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; text-align: start; }
+.wiz-widgets .plus { width: 34px; height: 34px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; flex: none; font-size: 22px; font-weight: 700; }
+.wiz-widgets b { display: block; font-size: 15px; }
+.wiz-widgets small { color: var(--muted); font-size: 13px; line-height: 1.6; }
+/* The tour: one bubble under a header button. */
+.tour { position: fixed; z-index: 60; width: 260px; padding: 12px 14px; border-radius: 14px; background: var(--bg-raised); color: var(--text);
+  box-shadow: 0 8px 28px rgba(0,0,0,.35); animation: wizIn .3s cubic-bezier(.2,.8,.2,1); }
+.tour::before { content: ""; position: absolute; top: -6px; left: var(--x, 50%); width: 12px; height: 12px; background: inherit; rotate: 45deg; translate: -50% 0; }
+.tour b { display: block; font-size: 15px; margin-bottom: 2px; }
+.tour p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--muted); }
+.tour footer { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+.tour footer .sp { flex: 1; }
+.tour footer button { padding: 5px 12px; border-radius: 999px; font-size: 13px; }
+.tour footer .go { background: var(--accent); color: #fff; font-weight: 700; }
+.tour-on { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 999px; }
 .wiz-opt input { width: 52px; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-raised); color: var(--text); font: inherit; text-align: center; }
 .s-card { fill: var(--bg-raised); stroke: var(--line); stroke-width: 2; }
 .s-g { fill: var(--accent); }
@@ -755,6 +805,7 @@ button.react:hover { border-color: var(--accent); }
 </button>
 
 <div id="scroller">
+  <div class="offline" id="offline" hidden>אין חיבור. מוצג מה שנשמר, והפיד ינסה שוב לבד.</div>
   <div class="st-tiles" id="stRow" hidden></div>
   <main id="feed" aria-live="polite"></main>
   <div class="state" id="empty" hidden><h2>אין כאן ידיעות כרגע</h2>אין מקור דלוק בלשונית הזאת, או שהמקורות לא ענו.</div>
@@ -813,6 +864,14 @@ button.react:hover { border-color: var(--accent); }
       </div>
     </section>
     <section data-t="display">
+      <h3>צפיפות</h3>
+      <div class="seg seg3" id="setDensity">
+        <button data-v="roomy"><b>מרווח</b><small>יותר רווח בין ידיעות</small></button>
+        <button data-v="normal"><b>רגיל</b><small>ברירת המחדל</small></button>
+        <button data-v="dense"><b>צפוף</b><small>יותר ידיעות במסך</small></button>
+      </div>
+    </section>
+    <section data-t="display">
       <h3>גופן</h3>
       <div class="faces" id="setFace"></div>
     </section>
@@ -845,6 +904,7 @@ button.react:hover { border-color: var(--accent); }
     <section data-t="display">
       <h3>סטטוס</h3>
       <div class="row"><span>סטטוס<small>הידיעות הפופולריות עם תמונה או סרטון, כמו סטטוס בוואטסאפ: בראש הפיד ובכפתור למעלה</small></span><button class="switch" role="switch" id="setStatus" aria-label="סטטוס"></button></div>
+      <div class="row sub" id="setStRowRow"><span>שורה בראש הפיד<small>כבוי: הסטטוס רק בכפתור למעלה</small></span><button class="switch" role="switch" id="setStRow" aria-label="שורת סטטוס בראש הפיד"></button></div>
     </section>
     <section data-t="display">
       <h3>בפיד</h3>
@@ -853,7 +913,6 @@ button.react:hover { border-color: var(--accent); }
       <div class="row"><span>ניגון אוטומטי של סרטונים<small>סרטון מתנגן כשהוא על המסך</small></span><button class="switch" role="switch" id="setAutoplay" aria-label="ניגון אוטומטי של סרטונים"></button></div>
       <div class="row sub" id="setSoundRow"><span>עם קול<small>בלי לחיצה. כבוי: הסרטון מתנגן מושתק</small></span><button class="switch" role="switch" id="setSound" aria-label="קול בניגון האוטומטי"></button></div>
       <div class="row"><span>מספר חדשות בלשוניות<small>כמה ידיעות חדשות הגיעו לכל לשונית מאז שהיית בה</small></span><button class="switch" role="switch" id="setTabCounts" aria-label="מספר חדשות בלשוניות"></button></div>
-      <div class="row"><span>תצוגה צפופה<small>תמונות וסרטונים קטנים, יותר ידיעות במסך</small></span><button class="switch" role="switch" id="setCompact" aria-label="תצוגה צפופה"></button></div>
     </section>
     <section data-t="advanced">
       <h3>זכירת המיקום</h3>
@@ -866,7 +925,8 @@ button.react:hover { border-color: var(--accent); }
     <section data-t="advanced">
       <h3>בפיד</h3>
       <div class="row"><span>איחוד ידיעות כפולות<small>אותה ידיעה מכמה ערוצים מופיעה פעם אחת, בגרסה המלאה יותר</small></span><button class="switch" role="switch" id="setMerge" aria-label="איחוד ידיעות כפולות"></button></div>
-      <div class="row"><span>טקסט בלבד<small>תמונות וסרטונים לא נטענים עד שלוחצים. לחיבור איטי או מסונן</small></span><button class="switch" role="switch" id="setTextOnly" aria-label="טקסט בלבד"></button></div>
+      <div class="row"><span>טקסט בלבד<small>תמונות וסרטונים לא נטענים עד שלוחצים. לחיבור איטי או מסונן</small></span><button class="chev" id="setTextOnlyMore" aria-expanded="false" aria-label="לפי ערוץ" title="לפי ערוץ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg></button><button class="switch" role="switch" id="setTextOnly" aria-label="טקסט בלבד"></button></div>
+      <div id="setTextOnlyList" hidden></div>
       <div class="row"><span>צליל במבזק<small>צליל קצר כשמגיע מבזק והלוח פתוח. לא בשבת ובחג</small></span><button class="switch" role="switch" id="setBrkSound" aria-label="צליל במבזק"></button></div>
       <div class="row"><span>הצגת פרסומות<small>ידיעות שהערוץ סימן כפרסומת. כבוי: לא מוצגות</small></span><button class="switch" role="switch" id="setAds" aria-label="הצגת פרסומות"></button></div>
     </section>
@@ -989,6 +1049,12 @@ button.react:hover { border-color: var(--accent); }
     </section>
 
     <section class="wiz-step" data-step="3" hidden>
+      <h2>על מה להתריע?</h2>
+      <p>התראה כשמגיעה ידיעה, גם כשהלוח סגור. אפשר לשנות אחר כך בהגדרות.</p>
+      <div class="seg wiz-via" id="wizVia"></div>
+      <div id="wizNotify"></div>
+    </section>
+    <section class="wiz-step" data-step="4" hidden>
       <h2>איך להציג?</h2>
       <div class="seg wiz-seg" id="wizOrder">
         <button data-v="top">
@@ -1009,14 +1075,22 @@ button.react:hover { border-color: var(--accent); }
         <svg viewBox="0 0 120 40" class="wiz-mini sm" aria-hidden="true"><rect x="1" y="1" width="118" height="38" rx="8" class="m-frame"/><svg x="48" y="8" width="24" height="24" viewBox="0 0 24 24"><path class="m-ico" d="M13 3a9 9 0 0 0-9 9H1l3.9 3.9.1.1L9 12H6a7 7 0 1 1 2.05 4.95l-1.42 1.42A9 9 0 1 0 13 3zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8z"/></svg></svg>
         <span><b>זכירת המיקום</b><small>חוזרים ללוח תוך <input type="number" min="0" max="3600" id="wizKeepSec"> שניות, ונוספו פחות מ-<input type="number" min="0" max="500" id="wizKeepItems"> ידיעות? הפיד נשאר איפה שעצרת.</small></span>
       </div>
+      <div class="wiz-opt">
+        <span><b>סטטוס</b><small>הידיעות הפופולריות עם תמונה או סרטון, בשורה בראש הפיד. כמו סטטוס בוואטסאפ.</small></span>
+        <button class="switch" role="switch" id="wizStatus" aria-label="סטטוס"></button>
+      </div>
+      <div class="wiz-opt">
+        <span><b>צבע</b><small>לכפתורים, לקישורים ולסימון.</small><div class="wiz-sw" id="wizAccent"></div></span>
+      </div>
     </section>
 
-    <section class="wiz-step" data-step="4" hidden>
+    <section class="wiz-step" data-step="5" hidden>
       <div class="wiz-art" aria-hidden="true">
         <svg viewBox="0 0 120 120" class="wiz-svg done"><circle cx="60" cy="60" r="44" class="d-disc"/><path d="M40 61l14 14 27-30" class="d-check"/></svg>
       </div>
       <h2>הכל מוכן</h2>
       <p id="wizSummary"></p>
+      <div class="wiz-widgets"><span class="plus" aria-hidden="true">+</span><span><b>ווידג'טים בלוח</b><small>בלוח לוחצים על "+" (הוספת ווידג'טים), בוחרים "הפיד" ומוסיפים: חדשות אחרונות, מבזקים, סטטוס ועוד.</small></span></div>
     </section>
 
     <div class="wiz-foot">
@@ -1665,7 +1739,8 @@ document.addEventListener("click", (e) => {
 function render(it, fresh) {
   const src = byId(it.src), n = norm(it), t = it.t || Date.now();
   const post = el("article", "post" + (it.breaking ? " breaking" : "") + (fresh ? " fresh" : "") + (READ.has(keyOf(it)) ? " read" : ""));
-  post.dataset.key = keyOf(it);
+  post.dataset.key = keyOf(it); post.dataset.src = it.src;
+  if (isDown(it.src)) queueMicrotask(() => markDown(post));
   const av = avatar(src, "avatar");
   const col = el("div", "col");
 
@@ -1674,6 +1749,11 @@ function render(it, fresh) {
   meta.append(name, el("span", null, "·"));
   const time = el("time", null, ago(t)); time.dateTime = new Date(t).toISOString(); time.title = fullDate(t); time.dataset.t = t;
   meta.append(time);
+  if (EDITS.has(keyOf(it))) {
+    const ed = el("button", "edited", "· נערך"); ed.title = "הגרסאות הקודמות";
+    ed.addEventListener("click", () => showEdits(it));
+    meta.append(ed);
+  }
   if (it.breaking) meta.append(el("span", "tag", "מבזק"));
   col.append(meta);
 
@@ -1709,7 +1789,7 @@ function render(it, fresh) {
     }
     at ? at.replaceWith(...out) : col.append(...out);
   };
-  if (S.textOnly && n.media.length) {
+  if (textOnly(it.src) && n.media.length) {
     const vids = n.media.filter((x) => x.kind === "video").length;
     const label = vids ? (imgs.length ? "הצגת התמונות והסרטון" : "הצגת הסרטון") : imgs.length > 1 ? `הצגת ${imgs.length} תמונות` : "הצגת התמונה";
     const b = el("button", "chip media-btn", label); b.addEventListener("click", () => addMedia(b)); col.append(b);
@@ -1943,10 +2023,12 @@ function applyOrder() {
 }
 
 // Text size, colours, compact view: classes and an attribute on <html>.
+const density = () => S.density || (S.compact ? "dense" : "normal");   // "compact" = the old dense switch
 function applyLook() {
   const r = document.documentElement;
   for (const f of ["s", "l"]) r.classList.toggle("font-" + f, S.font === f);
-  r.classList.toggle("compact", !!S.compact);
+  r.classList.toggle("compact", density() === "dense");
+  r.classList.toggle("roomy", density() === "roomy");
   if (S.theme === "light" || S.theme === "dark") r.dataset.theme = S.theme; else delete r.dataset.theme;
   applyAccent();
 }
@@ -1991,6 +2073,7 @@ async function poll(force = false) {
   const results = await Promise.all(srcs.map((s) => ADAPTERS[s.kind].page(s, 0).then((p) => p.items, () => null)));
   if (st !== stream) return;   // the tab changed while this poll was out: its results belong to the old feed
   setOnline(results.some(Boolean) || !srcs.length);
+  results.forEach((list, i) => health(srcs[i], !!list));
   // Only items newer than anything already fetched from that source are new. Older ones that were not
   // shown yet are simply further down the stream: scrolling loads them in their place.
   const fresh = [];
@@ -1999,7 +2082,10 @@ async function poll(force = false) {
     if (!list || !lane || !lane.maxT) return;   // not loaded yet: the stream brings it in order
     for (const it of list) {
       const post = document.querySelector(`#feed .post[data-key="${CSS.escape(keyOf(it))}"]`);
-      if (post) { if (post._item) post._item.reactions = it.reactions; fillReactions(post.querySelector(".actions"), post._item || it); continue; }
+      if (post) {
+        if (edited(post._item, it)) { post.replaceWith(render(it)); continue; }
+        if (post._item) post._item.reactions = it.reactions; fillReactions(post.querySelector(".actions"), post._item || it); continue;
+      }
       if (it.t > lane.maxT && visible(it) && !seen.has(keyOf(it)) && !pending.some((p) => keyOf(p) === keyOf(it))) fresh.push(it);
     }
     lane.maxT = Math.max(lane.maxT, ...list.map((x) => x.t));
@@ -2053,7 +2139,49 @@ const idle = () => Date.now() - lastTouch > 8000;
 for (const ev of ["wheel", "pointerdown", "keydown", "touchstart"]) addEventListener(ev, () => (lastTouch = Date.now()), { passive: true, capture: true });
 scroller.addEventListener("scroll", updatePill, { passive: true });
 
+// A site that failed three rounds in a row (about 45 seconds) is "not answering": a red dot on its logo in the
+// feed (the reason on hover) and a line in its row in Sources.
+const HEALTH = {};   // id -> { fails, since }
+const isDown = (id) => (HEALTH[id]?.fails || 0) >= 3;
+const hhmm = (t) => new Date(t).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+function health(s, ok) {
+  const h = (HEALTH[s.id] ||= { fails: 0, since: 0 }), was = isDown(s.id);
+  if (ok) h.fails = 0; else if (!h.fails++) h.since = Date.now();
+  if (was !== isDown(s.id)) document.querySelectorAll(`#feed .post[data-src="${CSS.escape(s.id)}"]`).forEach(markDown);
+}
+function markDown(post) {
+  const id = post.dataset.src, down = isDown(id), av = post.querySelector(".avatar");
+  post.classList.toggle("down", down);
+  if (down) av?.setAttribute("title", `האתר של ${byId(id)?.name || ""} לא עונה מ-${hhmm(HEALTH[id].since)}`); else av?.removeAttribute("title");
+}
+
+// Edits: the same item back with other text. The texts this feed saw before are kept (the last 300 edited items),
+// and "נערך" next to the time shows them all.
+// ponytail: only items on screen are compared; an edit made while the item was off screen is not caught.
+function loadJson(k, d) { try { return JSON.parse(localStorage.getItem(k) || "null") ?? d; } catch { return d; } }
+const EDITS = new Map(loadJson("hz-edits", []));
+const textOf = (it) => { const n = norm(it); return [n.title, n.body].filter(Boolean).join("\n").trim(); };
+const same = (a, b) => a.replace(/\s+/g, " ") === b.replace(/\s+/g, " ");
+function edited(old, it) {
+  if (!old) return false;
+  const was = textOf(old), now = textOf(it);
+  if (!was || !now || same(was, now)) return false;
+  const v = EDITS.get(keyOf(it)) || [];
+  v.push({ t: Date.now(), text: was });
+  EDITS.delete(keyOf(it)); EDITS.set(keyOf(it), v.slice(-20));
+  try { localStorage.setItem("hz-edits", JSON.stringify([...EDITS].slice(-300))); } catch {}
+  return true;
+}
+function showEdits(it) {
+  const v = EDITS.get(keyOf(it)) || [], box = el("div", "edits");
+  const ver = (label, text, now) => { const d = el("div", "ver" + (now ? " now" : "")), b = el("div"); fillText(b, text); d.append(el("small", null, label), b); box.append(d); };
+  ver(`עכשיו · נערך ב-${hhmm(v.at(-1)?.t || Date.now())}`, textOf(it), true);
+  for (let i = v.length - 1; i >= 0; i--) ver((i ? "" : "המקורית · ") + `עד ${hhmm(v[i].t)}`, v[i].text);
+  floatSheet(v.length === 1 ? "נערך פעם אחת" : `נערך ${v.length} פעמים`, box);
+}
+
 function setOnline(ok) {
+  $("#offline").hidden = ok;
   $("#dot").classList.toggle("off", !ok);
   $("#status").textContent = ok ? "בשידור חי" : "אין חיבור";
 }
@@ -2181,6 +2309,7 @@ function avatar(src, cls) {
 function sourceRow(s, toggleOnly = false) {
   const row = el("div", "row"), txt = el("span", null, s.name);
   if (s.note) txt.append(el("small", null, s.note));
+  if (isDown(s.id)) txt.append(el("small", "down-line", `לא עונה מ-${hhmm(HEALTH[s.id].since)}`));
   if (s.login && !signedIn(s) && toggleOnly) txt.append(el("small", "lock", "דורש התחברות עם Google, בשלב הבא"));
   if (s.login && !signedIn(s) && !toggleOnly) {
     txt.append(el("small", null, "נדרשת התחברות עם Google"));
@@ -2473,17 +2602,26 @@ function buildSettings() {
   $("#setBrkSound").setAttribute("aria-checked", !!S.brkSound);
   $("#setMerge").setAttribute("aria-checked", !S.noMerge);
   $("#setStatus").setAttribute("aria-checked", S.status !== false);
+  $("#setStRow").setAttribute("aria-checked", S.stRow !== false);
+  $("#setStRowRow").hidden = S.status === false;
   $("#setStAll").setAttribute("aria-checked", !!S.stAll);
   $("#setStNoReact").setAttribute("aria-checked", S.stNoReact !== false);
   $("#setStLevel").value = S.stLevel ?? 1; $("#stLevelTxt").textContent = ST_LEVELS[S.stLevel ?? 1][1];
   $("#setStHours").value = S.stHours || 12;
-  $("#setTextOnly").setAttribute("aria-checked", !!S.textOnly);
+  $("#setTextOnly").setAttribute("aria-checked", textOnlyState());
+  const tl = $("#setTextOnlyList"); tl.replaceChildren();
+  for (const s of enabled()) {
+    const r = el("div", "row sub"), sw = el("button", "switch");
+    sw.setAttribute("role", "switch"); sw.setAttribute("aria-label", "טקסט בלבד: " + s.name); sw.setAttribute("aria-checked", textOnly(s.id));
+    sw.addEventListener("click", () => { const cur = enabled().map((x) => x.id).filter(textOnly); setTextOnly(textOnly(s.id) ? cur.filter((i) => i !== s.id) : [...cur, s.id]); });
+    r.append(avatar(s), el("span", null, s.name), sw); tl.append(r);
+  }
   $("#setHighlight").value = S.highlight || "";
   document.querySelectorAll("#setDate button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.date || "heb")));
   $("#setTabCounts").setAttribute("aria-checked", !!S.tabCounts);
   facesUI();
   accentUI();
-  $("#setCompact").setAttribute("aria-checked", !!S.compact);
+  document.querySelectorAll("#setDensity button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === density()));
   $("#setAds").setAttribute("aria-checked", !!S.showAds);
   $("#setHide").value = S.hideWords || "";
   $("#setPoll").value = S.pollSec || POLL_MS / 1000;
@@ -2660,6 +2798,7 @@ document.querySelectorAll("#setTheme button").forEach((b) => b.addEventListener(
 document.querySelectorAll("#setQuote button").forEach((b) => b.addEventListener("click", () => { S.quoteMode = b.dataset.v; saveSettings(); buildSettings(); }));
 // These change how items are drawn: the tab is drawn again.
 const redraw = () => { CUT_VER++; if (!inSaved && !inGallery) openTab(S.tab); };
+$("#setStRow").addEventListener("click", () => { S.stRow = S.stRow === false; saveSettings(); buildSettings(); stRefresh(); });
 $("#setStatus").addEventListener("click", () => { S.status = S.status === false; saveSettings(); buildSettings(); stUpdate(); });
 $("#setStNoReact").addEventListener("click", () => { S.stNoReact = S.stNoReact === false; saveSettings(); buildSettings(); stUpdate(true); });
 $("#setStAll").addEventListener("click", () => { S.stAll = !S.stAll; saveSettings(); buildSettings(); stUpdate(true); });
@@ -2667,7 +2806,26 @@ $("#setStLevel").addEventListener("input", (e) => { S.stLevel = +e.target.value;
 $("#setStLevel").addEventListener("change", () => stUpdate(true));
 $("#setStHours").addEventListener("change", (e) => { S.stHours = Math.min(48, Math.max(1, +e.target.value || 12)); saveSettings(); stUpdate(true); });
 $("#setMerge").addEventListener("click", () => { S.noMerge = !S.noMerge; saveSettings(); buildSettings(); redraw(); });
-$("#setTextOnly").addEventListener("click", () => { S.textOnly = !S.textOnly; saveSettings(); buildSettings(); redraw(); });
+// Text only: all channels (true), none (false), or a list of channel ids (the arrow by the switch). A partly
+// on switch goes the way of the majority.
+const textOnly = (id) => S.textOnly === true || (Array.isArray(S.textOnly) && S.textOnly.includes(id));
+function textOnlyState() {
+  const ids = enabled().map((s) => s.id), k = ids.filter(textOnly).length;
+  return S.textOnly === true || (k && k === ids.length) ? "true" : k ? "mixed" : "false";
+}
+function setTextOnly(ids) {
+  const all = enabled().map((s) => s.id);
+  S.textOnly = !ids.length ? false : all.every((i) => ids.includes(i)) ? true : ids;
+  saveSettings(); buildSettings(); redraw();
+}
+$("#setTextOnly").addEventListener("click", () => {
+  const all = enabled().map((s) => s.id), st = textOnlyState();
+  setTextOnly(st === "true" ? [] : st === "false" || all.filter(textOnly).length * 2 >= all.length ? all : []);
+});
+$("#setTextOnlyMore").addEventListener("click", (e) => {
+  const open = $("#setTextOnlyList").hidden;
+  $("#setTextOnlyList").hidden = !open; e.currentTarget.setAttribute("aria-expanded", open);
+});
 $("#setHighlight").addEventListener("change", (e) => { S.highlight = e.target.value; saveSettings(); redraw(); });
 document.querySelectorAll("#setDate button").forEach((b) => b.addEventListener("click", () => { S.date = b.dataset.v; saveSettings(); buildSettings(); document.querySelectorAll("#feed time[data-t]").forEach((x) => (x.title = fullDate(+x.dataset.t))); }));
 $("#setTabCounts").addEventListener("click", () => { S.tabCounts = !S.tabCounts; saveSettings(); buildSettings(); countTabs(); });
@@ -2705,7 +2863,7 @@ $("#accHex").addEventListener("input", () => {
 });
 $("#accDone").addEventListener("click", () => { $("#accOwn").hidden = true; accentUI(); });
 $("#accShade").addEventListener("input", () => { S.accentShade = +$("#accShade").value; saveSettings(); applyAccent(); accentUI(); });
-$("#setCompact").addEventListener("click", () => { S.compact = !S.compact; saveSettings(); buildSettings(); applyLook(); });
+document.querySelectorAll("#setDensity button").forEach((b) => b.addEventListener("click", () => { S.density = b.dataset.v; delete S.compact; saveSettings(); buildSettings(); applyLook(); }));
 $("#setAds").addEventListener("click", () => { S.showAds = !S.showAds; saveSettings(); buildSettings(); dirty = true; });
 $("#setHide").addEventListener("change", (e) => { S.hideWords = e.target.value; saveSettings(); dirty = true; });
 $("#setPoll").addEventListener("change", (e) => { S.pollSec = Math.min(600, Math.max(10, +e.target.value || 30)); saveSettings(); buildSettings(); });
@@ -2768,7 +2926,7 @@ $("#setKeepItems").addEventListener("change", (e) => { S.keepItems = Math.max(0,
 $("#gear").addEventListener("click", () => { buildSettings(); $("#sheet").classList.add("show"); $("#setClose").focus(); });
 // Each tab can go back to its defaults: a second click confirms, and for a few seconds it can be undone.
 const RESET = {
-  display: ["status", "layout", "order", "font", "face", "date", "theme", "accent", "accentShade", "breaking", "reactions", "autoplay", "autoSound", "compact", "tabCounts"],
+  display: ["status", "layout", "order", "font", "face", "date", "theme", "accent", "accentShade", "breaking", "reactions", "autoplay", "autoSound", "compact", "density", "tabCounts", "stRow"],
   feeds: ["tabOrder", "catOrder", "allEx", "allOff"],
   sources: ["on"],
   advanced: ["keepSec", "keepItems", "hideWords", "highlight", "mutes", "pollSec", "cuts", "quoteMode", "showAds", "brkSound", "noMerge", "textOnly", "stLevel", "stHours", "stAll", "stNoReact"],
@@ -2813,7 +2971,7 @@ $("#setClose").addEventListener("click", closeSettings);
 $("#sheet").addEventListener("click", (e) => { if (e.target === $("#sheet")) closeSettings(); });
 
 // ---------- first-run wizard ----------
-const WIZ_LAST = 4;
+const WIZ_LAST = 5;
 let wizAt = 0;
 function wizCloud() {
   const box = el("div", "cloud"), open = SOURCES.filter((s) => !s.login && !s.via && s.logo).slice(0, 10);
@@ -2857,7 +3015,10 @@ function wizShow(i) {
   if (i === 0) wizCloud();
   if (i === 1) sourcesPicker($("#wizSources"), undefined, false, true);
   if (i === 2) wizLogin();
-  if (i === 3) {
+  if (i === 3) wizNotify();
+  if (i === 4) {
+    $("#wizStatus").setAttribute("aria-checked", S.status !== false);
+    wizAccent();
     document.querySelectorAll("#wizOrder button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === S.order));
     $("#wizBreaking").setAttribute("aria-checked", S.breaking);
     $("#wizKeepSec").value = S.keepSec; $("#wizKeepItems").value = S.keepItems;
@@ -2874,10 +3035,55 @@ $("#wizBack").addEventListener("click", () => { let i = Math.max(0, wizAt - 1); 
 $("#wizNext").addEventListener("click", () => {
   if (wizAt < WIZ_LAST) { let i = wizAt + 1; if (wizSkip(i)) i++; return wizShow(i); }
   S.setup = true; S.wizStep = 0; saveSettings(); $("#wiz").hidden = true;
-  applyOrder(); buildTabs(); openTab(S.tab);
+  applyOrder(); buildTabs(); openTab(S.tab); stUpdate();
+  if (!S.toured) { S.toured = true; saveSettings(); setTimeout(tour, 700); }
 });
-document.querySelectorAll("#wizOrder button").forEach((b) => b.addEventListener("click", () => { S.order = b.dataset.v; saveSettings(); wizShow(3); }));
-$("#wizBreaking").addEventListener("click", () => { S.breaking = !S.breaking; saveSettings(); wizShow(3); });
+document.querySelectorAll("#wizOrder button").forEach((b) => b.addEventListener("click", () => { S.order = b.dataset.v; saveSettings(); wizShow(4); }));
+$("#wizBreaking").addEventListener("click", () => { S.breaking = !S.breaking; saveSettings(); wizShow(4); });
+$("#wizStatus").addEventListener("click", () => { S.status = S.status === false; saveSettings(); wizShow(4); });
+// Notifications in the wizard: how, and per channel (the same rows as in Settings).
+function wizNotify() {
+  const n = N(), via = $("#wizVia"), box = $("#wizNotify");
+  via.replaceChildren();
+  for (const [v, label, sub] of [["off", "בלי", "אין התראות"], ["board", "בלוח", "בשקט, על הכפתור"], ["toast", "חלון", "בפינת המסך"], ["both", "שניהם", "חלון וגם בלוח"]]) {
+    const b = el("button"); b.append(el("b", null, label), el("small", null, sub)); b.setAttribute("aria-pressed", n.via === v);
+    b.addEventListener("click", () => { n.via = v; saveSettings(); if (v !== "off") checkNotify(); wizNotify(); });
+    via.append(b);
+  }
+  box.replaceChildren(); box.hidden = n.via === "off";
+  for (const s of enabled()) box.append(ntRow(n, s, enabled(), wizNotify));
+}
+function wizAccent() {
+  const box = $("#wizAccent"); box.replaceChildren();
+  for (const [name, hex] of [["כמו Windows", "win"], ...ACCENTS]) {
+    const b = el("button"); b.title = name; b.setAttribute("aria-label", name);
+    b.style.background = hex === "win" ? winAccent : hex;
+    b.setAttribute("aria-pressed", hex === "win" ? !isHex(S.accent) : S.accent === hex);
+    if (hex === "win") b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8.5v8.5H3zM12.5 3H21v8.5h-8.5zM3 12.5h8.5V21H3zM12.5 12.5H21V21h-8.5z"/></svg>';
+    b.addEventListener("click", () => { S.accent = hex; saveSettings(); applyAccent(); wizAccent(); });
+    box.append(b);
+  }
+}
+// The tour: once, right after the first wizard (new users only). One bubble at a time under a header button.
+const TOUR = [["#statusBtn", "סטטוס", "הידיעות הפופולריות עם תמונה או סרטון, כמו סטטוס בוואטסאפ."],
+  ["#galleryBtn", "תמונות", "כל התמונות של הלשונית, ברשת אחת."],
+  ["#savedBtn", "שמורים", "ידיעות ששמרת לאחר כך. שומרים מהתפריט ⋯ של ידיעה."],
+  ["#gear", "הגדרות", "ערוצים, התראות, תצוגה ועוד. וגם האשף, אם תרצה לעבור עליו שוב."]];
+function tour(i = 0) {
+  document.querySelector(".tour")?.remove(); document.querySelector(".tour-on")?.classList.remove("tour-on");
+  const steps = TOUR.filter(([sel]) => $(sel)?.offsetParent);
+  const step = steps[i]; if (!step) return;
+  const t = $(step[0]), r = t.getBoundingClientRect(), b = el("div", "tour"), f = el("footer");
+  b.setAttribute("role", "dialog"); b.setAttribute("aria-label", step[1]);
+  const skip = el("button", null, "דילוג"), go = el("button", "go", i === steps.length - 1 ? "סיום" : "הבא");
+  skip.addEventListener("click", () => tour(99)); go.addEventListener("click", () => tour(i + 1));
+  f.append(el("span", null, `${i + 1} מתוך ${steps.length}`), el("span", "sp"), skip, go);
+  b.append(el("b", null, step[1]), el("p", null, step[2]), f);
+  const left = Math.min(Math.max(8, r.left + r.width / 2 - 130), innerWidth - 268);
+  b.style.top = r.bottom + 10 + "px"; b.style.left = left + "px"; b.style.setProperty("--x", r.left + r.width / 2 - left + "px");
+  t.classList.add("tour-on"); document.body.append(b); go.focus();
+}
+if (S.setup && S.toured === undefined) { S.toured = true; saveSettings(); }   // users from before the tour: no tour
 $("#wizKeepSec").addEventListener("change", (e) => { S.keepSec = Math.max(0, +e.target.value || 0); saveSettings(); });
 $("#wizKeepItems").addEventListener("change", (e) => { S.keepItems = Math.max(0, +e.target.value || 0); saveSettings(); });
 // ---------- notifications ----------
@@ -2961,6 +3167,22 @@ async function checkNotify() {
 setInterval(checkNotify, 90000);
 
 let ntOpen = false;   // "more channels" opened; closed again with the settings
+// One channel's row: off / breaking / everything.
+function ntRow(n, s, list, redo) {
+  const row = el("div", "row nrow"), seg = el("div", "tri"), cur = chOf(n, s);
+  for (const [v, label] of [["", "כבוי"], ...(hasBreaking(s) ? [["breaking", "מבזקים"]] : []), ["all", "הכל"]]) {
+    const b = el("button", null, label); b.setAttribute("aria-pressed", cur === v);
+    b.addEventListener("click", () => {
+      // The first pick turns the automatic choice into an explicit list, keeping what it showed.
+      if (!n.ch) n.ch = Object.fromEntries(list.map((x) => [x.id, chOf(n, x)]).filter(([, m]) => m));
+      v ? (n.ch[s.id] = v) : delete n.ch[s.id]; saveSettings(); redo();
+    });
+    seg.append(b);
+  }
+  row.classList.toggle("on", !!cur);
+  row.append(avatar(s), el("span", null, s.name), seg);
+  return row;
+}
 function buildNotify() {
   const n = N(), off = n.via === "off", list = enabled();
   document.querySelectorAll("#ntVia button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === n.via));
@@ -2995,20 +3217,7 @@ function buildNotify() {
       });
     }
     let rowsEnd = box.lastChild;
-    for (const s of srcs) {
-      const row = el("div", "row nrow"), seg = el("div", "tri"), cur = chOf(n, s);
-      for (const [v, label] of [["", "כבוי"], ...(hasBreaking(s) ? [["breaking", "מבזקים"]] : []), ["all", "הכל"]]) {
-        const b = el("button", null, label); b.setAttribute("aria-pressed", cur === v);
-        b.addEventListener("click", () => {
-          // The first pick turns the automatic choice into an explicit list, keeping what it showed.
-          if (!n.ch) n.ch = Object.fromEntries(list.map((x) => [x.id, chOf(n, x)]).filter(([, m]) => m));
-          v ? (n.ch[s.id] = v) : delete n.ch[s.id]; saveSettings(); buildNotify();
-        });
-        seg.append(b);
-      }
-      row.classList.toggle("on", !!cur);
-      row.append(avatar(s), el("span", null, s.name), seg); box.append(row); rowsEnd = row;
-    }
+    for (const s of srcs) { const row = ntRow(n, s, list, buildNotify); box.append(row); rowsEnd = row; }
   };
   group("ערוצים שמסמנים מבזקים", "", list.filter(hasBreaking));
   group("שאר הערוצים", "הערוצים האלה לא מסמנים מבזקים, אז אפשר להתריע רק על כל ההודעות שלהם.", list.filter((s) => !hasBreaking(s)));
@@ -3681,7 +3890,7 @@ $("#galleryBtn").addEventListener("click", () => { if (!inGallery) { showPics();
 // quiet, noon is busy). An item is in when it has more than that (1.2 times by default, "קצת"), and 2 at least.
 const ST_LEVELS = [[1, "כמעט הכל"], [1.2, "קצת"], [1.6, "בינוני"], [2.2, "הרבה"], [3, "מאוד"]];
 const DEF_HOURS = [.35, .25, .2, .2, .25, .4, .6, .8, .95, 1, 1.05, 1.1, 1.15, 1.15, 1.1, 1.05, 1.05, 1.1, 1.2, 1.25, 1.25, 1.15, .9, .6];
-const loadJson = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || "null") ?? d; } catch { return d; } };
+
 let LEARN = loadJson("hz-st-learn", { ch: {}, hr: DEF_HOURS.slice(), done: [] });
 const ST_SEEN = new Set(loadJson("hz-st-seen", []));
 // When each item first became a status: the order of a status (an older item that becomes popular later
@@ -3829,7 +4038,7 @@ function stRefresh() {
   const feeds = on ? stFeeds().filter((g) => !stMuted(g)) : [];
   $(".st-dot").hidden = !feeds.some(unseenOf);
   const row = $("#stRow");
-  row.hidden = !feeds.length || inSaved || inGallery;
+  row.hidden = !feeds.length || inSaved || inGallery || S.stRow === false;
   row.replaceChildren(...feeds.map((g) => stTile(g, feeds)));
   if (!$("#stScreen").hidden) stScreenDraw();
 }

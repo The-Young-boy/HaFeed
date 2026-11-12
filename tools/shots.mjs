@@ -57,7 +57,9 @@ await shot("set-all", { prep: tab("feeds") + ` await new Promise(r => setTimeout
 await shot("set-advanced", { prep: tab("about") + ` await new Promise(r => setTimeout(r, 300)); document.querySelector('#advOpen').click();` });
 await shot("wizard", { prep: `openWizard(0);` });
 await shot("wizard-sources", { prep: `openWizard(1);` });
-await shot("wizard-look", { dark: true, prep: `openWizard(3);` });
+await shot("wizard-look", { dark: true, prep: `openWizard(4);` });
+await shot("wizard-notify", { prep: `openWizard(3);` });
+await shot("wizard-done", { prep: `openWizard(5);` });
 // Status, pictures, articles, the wide settings.
 const status = `await stUpdate(true); await new Promise(r => setTimeout(r, 2500));`;
 const picStatus = status + ` const fs = stFeeds(); stOpen(fs, 0); const i = fs[0].items.findIndex((it) => norm(it).media[0]?.kind === "image" && norm(it).title); if (i >= 0) { SV.ii = i; stShow(); } stPause(true); await new Promise(r => setTimeout(r, 2500));`;
@@ -71,4 +73,8 @@ await shot("feed-saved", { prep: `[...document.querySelectorAll("#feed > .post")
 await shot("feed-also", { prep: `S.status = false; stRefresh(); for (let i = 0; i < 4 && !document.querySelector("#feed .also"); i++) { await loadMore(); await new Promise(r => setTimeout(r, 400)); } document.querySelector("#feed .also")?.closest(".post").scrollIntoView({ block: "center" }); await new Promise(r => setTimeout(r, 1500));` });
 await shot("set-wide", { w: 1200, h: 1000, prep: tab("display") });
 await shot("set-search", { w: 1200, h: 800, dark: true, prep: `document.querySelector('[aria-label="הגדרות"]').click(); await new Promise(r => setTimeout(r, 400)); const s = document.querySelector("#setSearch"); s.value = "צליל"; s.dispatchEvent(new Event("input"));` });
+await shot("set-textonly", { w: 1200, h: 1000, prep: `S.textOnly = ["hagizra", "emess"]; saveSettings();` + tab("about") + ` await new Promise(r => setTimeout(r, 300)); document.querySelector('#advOpen').click(); await new Promise(r => setTimeout(r, 300)); document.querySelector('#setTextOnlyMore').click(); document.querySelector('#setTextOnly').scrollIntoView({ block: "center" });` });
+await shot("feed-edited", { prep: `const p = document.querySelector('#feed .post[data-key]'), it = { ...p._item, text: p._item.text + " (עודכן)" }; delete it.norm; delete it._n0; delete it._cv; edited(p._item, it); HEALTH[it.src] = { fails: 3, since: Date.now() - 4e5 }; health = () => {}; p.replaceWith(render(it)); await new Promise(r => setTimeout(r, 300)); document.querySelector('#feed .edited').click();` });
+await shot("feed-down", { prep: `const p = document.querySelector('#feed .post[data-key]'); health = () => {}; setOnline = () => {}; HEALTH[p.dataset.src] = { fails: 3, since: Date.now() - 4e5 }; markDown(p); $("#offline").hidden = false; S.density = "roomy"; applyLook();` });
+await shot("tour", { prep: `S.status = true; stRefresh(); tour(0);` });
 ws.close(); edge.kill();
