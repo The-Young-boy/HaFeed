@@ -169,6 +169,12 @@ if ($env:HZ_MODE -and $env:HZ_MODE -ne 'quiet') {
 function Get-Runtime { Get-AppxPackage Microsoft.WindowsAppRuntime.1.6 -ErrorAction SilentlyContinue | Where-Object { $_.Architecture -eq 'X64' -and [version]$_.Version -ge [version]'6000.519.329.0' } | Select-Object -First 1 }
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+# The window runs with no console: anything that stops it from opening goes to the log and to a message.
+trap {
+    Write-Log "window failed: $_ (line $($_.InvocationInfo.ScriptLineNumber))"
+    if ($env:HZ_MODE -ne 'quiet') { [void][Windows.MessageBox]::Show("המתקין נתקל בשגיאה ולא נפתח.`n`n$_`n`nהפרטים נשמרו ב-$LogFile", 'הפיד') }
+    exit 1
+}
 
 $build = [Environment]::OSVersion.Version.Build
 $light = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name AppsUseLightTheme -ErrorAction SilentlyContinue).AppsUseLightTheme -ne 0
@@ -712,5 +718,7 @@ $LatestTimer.Add_Tick({
 })
 $LatestTimer.Start()
 
+Write-Log "window opened ($Version)"
+$win.Add_ContentRendered({ [void]$win.Activate() })   # in front, also when started from a hidden process
 Show-Home
 [void]$win.ShowDialog()

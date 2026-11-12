@@ -70,6 +70,8 @@ pub fn check(install: bool, ui: bool) {
     let msix = dir().join("HaFeed-update.msix");
     if http::download(&url, "User-Agent: HaFeed\r\n", &msix) != Some(200) { return set("failed", "ההורדה נכשלה") }
     set("installing", "");
+    let err_file = dir().join("update-error.txt");
+    let _ = std::fs::remove_file(&err_file);
     // The task removes itself after the install; the board starts the new provider on its own.
     let ps1 = dir().join("update.ps1");
     let script = format!(
@@ -95,6 +97,22 @@ pub fn check(install: bool, ui: bool) {
         return set("failed", "לא ניתן להפעיל את ההתקנה");
     }
     log(&format!("update: installing {tag}"));
+    // A good install shuts this process down. Still here = the install failed (its error is in the file) or never
+    // started (an antivirus can stop the task): say so, so About does not stay on "updating" for ever.
+    std::thread::spawn(move || {
+        for _ in 0..90 {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            if let Ok(b) = std::fs::read(&err_file) {
+                // Windows PowerShell's Out-File writes UTF-16.
+                let e = if b.starts_with(&[0xFF, 0xFE]) { String::from_utf16_lossy(&b[2..].chunks(2).map(|c| u16::from_le_bytes([c[0], *c.get(1).unwrap_or(&0)])).collect::<Vec<_>>()) } else { String::from_utf8_lossy(&b).into_owned() };
+                let first: String = e.trim_start_matches('\u{FEFF}').lines().find(|l| !l.trim().is_empty()).unwrap_or("").chars().take(200).collect();
+                log(&format!("update: failed: {first}"));
+                return set("failed", &format!("ההתקנה נכשלה: {first}"));
+            }
+        }
+        log("update: the install did not finish in 3 minutes");
+        set("failed", "ההתקנה לא הסתיימה. אפשר להוריד את המתקין מ-GitHub ולהריץ אותו.");
+    });
 }
 
 /// The background clock.
