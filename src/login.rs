@@ -74,7 +74,20 @@ fn save(jar: &BTreeMap<String, String>) {
 
 /// The Cookie header for a host we signed in to.
 pub fn cookie_for(host: &str) -> Option<String> {
+    if TOKEN_SITES.iter().any(|t| t.0 == host) { return None; }   // a token, not a cookie (see below)
     with_jar(|j| j.get(host).cloned())
+}
+
+// Channel sites that keep the sign-in as a token in their own localStorage and send it in the body of every
+// request to their API ("_t"), instead of a cookie: (site host, page path, localStorage key, API host).
+const TOKEN_SITES: &[(&str, &str, &str, &str)] = &[("riangkkhh.github.io", "/1/", "cc", "harry335.pythonanywhere.com")];
+/// The JSON body for a request to a token site's API, with the token added when signed in.
+pub fn with_token(api_host: &str, body: &str) -> Option<String> {
+    let site = TOKEN_SITES.iter().find(|t| t.3 == api_host)?.0;
+    let token = with_jar(|j| j.get(site).cloned())?;
+    let rest = body.trim_start().strip_prefix('{')?.trim_start();
+    let t = token.replace('\\', "\\\\").replace('"', "\\\"");
+    Some(if rest.starts_with('}') { format!("{{\"_t\":\"{t}\"}}") } else { format!("{{\"_t\":\"{t}\",{rest}") })
 }
 // Guest cookies, per host, kept like a browser keeps them: the sites know a guest by a cookie (hateder's
 // `vid` must be a minute old before a reaction counts), and the board restarts us often, so they must
@@ -174,7 +187,7 @@ fn run(host: &str) -> Result<String, String> {
     let mut win = std::process::Command::new(&edge)
         .arg(format!("--user-data-dir={}", profile.display()))
         .args(["--no-first-run", "--no-default-browser-check"])
-        .arg(format!("--app=https://{host}/"))
+        .arg(format!("--app=https://{host}{}", TOKEN_SITES.iter().find(|t| t.0 == host).map_or("/", |t| t.1)))
         .spawn()
         .map_err(|e| format!("Edge לא נפתח: {e}"))?;
     let deadline = Instant::now() + Duration::from_secs(900);
@@ -190,7 +203,51 @@ fn run(host: &str) -> Result<String, String> {
     }
     // ponytail: wait for the profile's other Edge processes to let go of the cookie store.
     std::thread::sleep(Duration::from_millis(1500));
-    read_cookies(&edge, &profile, host)
+    match TOKEN_SITES.iter().find(|t| t.0 == host) {
+        Some(t) => read_token(&edge, &profile, t),
+        None => read_cookies(&edge, &profile, host),
+    }
+}
+
+/// Step 2 for a token site: the same profile, headless, on the channel's page; read the token from its
+/// localStorage over DevTools and check it with the API.
+fn read_token(edge: &std::path::Path, profile: &std::path::Path, site: &(&str, &str, &str, &str)) -> Result<String, String> {
+    let (host, path, key, api) = *site;
+    let port_file = profile.join("DevToolsActivePort");
+    let _ = std::fs::remove_file(&port_file);
+    let mut child = std::process::Command::new(edge)
+        .arg(format!("--user-data-dir={}", profile.display()))
+        .args(["--headless=new", "--remote-debugging-port=0", "--no-first-run"])
+        .arg(format!("https://{host}{path}"))
+        .spawn()
+        .map_err(|e| format!("Edge לא נפתח: {e}"))?;
+    let mut result = Err("לא נמצאה התחברות לערוץ. התחבר בחלון, חכה שהערוץ ייפתח, ורק אז סגור אותו.".to_string());
+    let deadline = Instant::now() + Duration::from_secs(25);
+    let mut browser = None;
+    while Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(700));
+        let Ok(s) = std::fs::read_to_string(&port_file) else { continue };
+        let mut l = s.lines();
+        let (Some(p), Some(bpath)) = (l.next(), l.next()) else { continue };
+        let port = p.trim().parse::<u16>().unwrap_or(0);
+        browser = Some((port, bpath.trim().to_string()));
+        // The channel's page target (its id is the last part of the page's DevTools path).
+        let Some(targets) = cdp_call(port, bpath.trim(), r#"{"id":1,"method":"Target.getTargets"}"#) else { continue };
+        let Some(id) = targets.split("},{").find(|o| field(o, "url").is_some_and(|u| u.starts_with(&format!("https://{host}")))).and_then(|o| field(o, "targetId")) else { continue };
+        let eval = format!(r#"{{"id":2,"method":"Runtime.evaluate","params":{{"expression":"localStorage.getItem('{key}') || ''","returnByValue":true}}}}"#);
+        let Some(v) = cdp_call(port, &format!("/devtools/page/{id}"), &eval) else { continue };
+        let token = field(&v, "value").unwrap_or("").to_string();
+        if token.is_empty() { break; }
+        let body = format!("{{\"_t\":\"{}\",\"limit\":1}}", token.replace('"', ""));
+        let me = http::fetch("POST", &format!("https://{api}/api/feed"), "Content-Type: text/plain;charset=utf-8\r\n", body.as_bytes())
+            .is_some_and(|r| r.status == 200 && !String::from_utf8_lossy(&r.body).contains("\"me\":null"));
+        if me { result = Ok(token); }
+        break;
+    }
+    if let Some((port, bpath)) = browser { let _ = cdp_call(port, &bpath, r#"{"id":3,"method":"Browser.close"}"#); }
+    std::thread::sleep(Duration::from_millis(500));
+    let _ = child.kill();
+    result
 }
 
 /// Step 2: the same profile, headless, with the DevTools port: read the channel's cookies and check them.
@@ -277,5 +334,13 @@ mod tests {
         let j = r#"{"id":1,"result":{"cookies":[{"name":"sid","value":"a\"b","domain":"ysiva.thechats.click","path":"/"},{"name":"g","value":"x","domain":".google.com"},{"name":"t","value":"1","domain":".thechats.click"}]}}"#;
         assert_eq!(super::cookies_for_host(j, "ysiva.thechats.click"), r#"sid=a\"b; t=1"#);
         assert_eq!(super::cookies_for_host(j, "other.com"), "");
+    }
+    #[test]
+    fn token_goes_into_the_body() {
+        super::with_jar(|j| { j.insert("riangkkhh.github.io".into(), "ab\"c".into()); });
+        assert_eq!(super::with_token("harry335.pythonanywhere.com", r#"{"limit":20}"#).unwrap(), r#"{"_t":"ab\"c","limit":20}"#);
+        assert_eq!(super::with_token("harry335.pythonanywhere.com", "{}").unwrap(), r#"{"_t":"ab\"c"}"#);
+        assert!(super::with_token("other.com", "{}").is_none());
+        assert!(super::cookie_for("riangkkhh.github.io").is_none());
     }
 }

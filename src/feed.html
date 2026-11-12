@@ -166,6 +166,8 @@ a:hover { text-decoration: underline; }
 .more:hover { text-decoration: underline; }
 
 /* ---------- media ---------- */
+.media-note { display: flex; gap: 8px; align-items: center; margin-top: 8px; padding: 8px 12px; border-radius: 10px; background: var(--bg-raised); color: var(--muted); font-size: 13px; line-height: 1.5; }
+.media-note svg { width: 18px; height: 18px; flex: none; fill: currentColor; opacity: .7; }
 .media {
   position: relative; margin-top: 12px; overflow: hidden;
   border: 1px solid var(--line); border-radius: 16px; background: var(--bg-raised);
@@ -1235,6 +1237,8 @@ const SOURCES = [
   { id: "art-kolbarama", name: "קול ברמה", note: "ראיונות וכתבות", cat: "articles", kind: "article", art: "kolbarama", base: "https://kol-barama.co.il", logo: "https://www.google.com/s2/favicons?domain=kol-barama.co.il&sz=64" },
 
   { id: "blackcat", name: "החתול השחור", cat: "fun", kind: "chat", base: "https://black-cat.thechats.click", on: true, logo: "" },
+  // Its own site and API: pictures and videos only for a signed-in user, so the channel is login-only.
+  { id: "charlie", name: "צ'ארלי גולגולת", cat: "fun", kind: "pyfeed", base: "https://riangkkhh.github.io/1/", api: "https://harry335.pythonanywhere.com", login: true, logo: "" },
 ];
 // Authenti News re-posts ~50 channels; each one is a source of its own ("via Authenti" in the settings).
 const AUTHENTI = { base: "https://authenti.newsupdates.click", logo: "https://authenti.newsupdates.click/assets/images/og-image.jpg" };
@@ -1275,6 +1279,7 @@ async function get(src, url, opt = {}) {
     if (opt.method) q.set("m", opt.method);
     if (opt.body != null) q.set("b", opt.body);
     if (opt.type) q.set("t", opt.type);
+    if (opt.cache) q.set("c", "1");   // a POST that only reads: the provider may answer it from its cache
     for (const h of opt.headers || []) q.append("h", h);
     target = "/winfeed/proxy?" + q;
   }
@@ -1424,6 +1429,30 @@ const ADAPTERS = {
       return { items, next: 0 };
     },
   },
+  // A channel site with its own API: POST {limit, before} to /api/feed, messages as HTML. The provider adds the
+  // sign-in token to the body (login.rs). "<!--m-->" marks where locked media was for a guest.
+  pyfeed: {
+    async page(src, before) {
+      const j = await get(src, src.api + "/api/feed", { method: "POST", body: JSON.stringify(before ? { limit: 20, before } : { limit: 20 }), type: "text/plain;charset=utf-8", cache: true });
+      const items = (j.msgs || []).map((m) => {
+        const d = new DOMParser().parseFromString((m.h || "").replace(/<!--m-->/g, ""), "text/html").body, media = [];
+        for (const x of d.querySelectorAll("img, video, audio")) {
+          const u = x.getAttribute("src") || x.querySelector("source")?.getAttribute("src");
+          // A video (and some pictures) comes inside the post as data: base64; it becomes a blob: address.
+          const url = u && (/^data:(image|video|audio)\//.test(u) ? dataBlob(u) : new URL(u, src.api).href);
+          if (url) media.push(`[${x.tagName === "IMG" ? "image" : x.tagName.toLowerCase()}-embedded#](${url})`);
+          x.remove();
+        }
+        d.querySelectorAll("br").forEach((b) => b.replaceWith("\n"));
+        d.querySelectorAll("p, div").forEach((b) => b.append("\n"));
+        const body = d.textContent.trim();
+        const reactions = Object.fromEntries(Object.entries(m.r || {}).map(([e, v]) => [e, v.n]).filter(([, n]) => n > 0));
+        return { src: src.id, id: m.id, t: m.t, text: [body, ...media].join("\n"), reactions, gone: !body && !media.length };
+      });
+      return { items, next: j.more && items.length ? minId(items) : 0 };
+    },
+    rewind: (src, kept) => (kept.length ? minId(kept) : 0),
+  },
   authenti: {
     async page(src, before) {
       const q = new URLSearchParams({ source: src.channel });
@@ -1532,7 +1561,21 @@ async function signInAll(btn) {
 
 // ---------- text normalization (the chat platform's markdown-ish format) ----------
 const EDGE = /^[\s‎‏‪-‮⁦-⁩]+|[\s‎‏‪-‮⁦-⁩]+$/g;
-const allowed = (u) => { u = (u || "").split("#")[0].trim(); return /^https:\/\//.test(u) ? u : null; };
+const allowed = (u) => { u = (u || "").split("#")[0].trim(); return /^(https:\/\/|blob:)/.test(u) ? u : null; };
+// data:<type>;base64,... -> a blob: address (kept per data, so a poll that brings the same post again reuses it).
+const BLOBS = new Map();
+function dataBlob(u) {
+  const key = u.length + ":" + u.slice(-64);
+  if (BLOBS.has(key)) return BLOBS.get(key);
+  try {
+    const [, type, b64] = /^data:([^;,]+);base64,(.*)$/s.exec(u) || [];
+    const bin = atob(b64), a = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([a], { type }));
+    BLOBS.set(key, url);
+    return url;
+  } catch { return null; }
+}
 const size = (ref) => { const m = /#(\d+)x(\d+)/.exec(ref || ""); return m ? [+m[1], +m[2]] : null; };
 const decode = (s) => { const t = document.createElement("textarea"); t.innerHTML = s; return t.value; };
 
@@ -1630,7 +1673,7 @@ function mediaBox(item, of) {
   if (item.kind === "image") {
     const img = el("img"); img.loading = "lazy"; img.decoding = "async"; img.alt = ""; img.src = item.url;
     img.addEventListener("click", () => openLightbox(item.url, 0, of));
-    img.addEventListener("error", () => box.remove());
+    img.addEventListener("error", () => box.replaceWith(mediaNote("התמונה לא נטענה. ייתכן שהיא נמחקה מהאתר שלה.")));
     box.append(img);
   } else {
     // #t=0.1 makes the browser paint the first frame as a poster.
@@ -1641,7 +1684,7 @@ function mediaBox(item, of) {
     const dur = el("b"); badge.append(dur);
     const mute = el("button", "vmute"); mute.innerHTML = svg(ICON.muted); mute.setAttribute("aria-label", "הפעלת קול");
     v.addEventListener("loadedmetadata", () => { dur.textContent = clock(v.duration); });
-    v.addEventListener("error", () => box.remove());
+    v.addEventListener("error", () => box.replaceWith(mediaNote("הסרטון לא נטען. ייתכן שהוא נמחק מהאתר שלו.")));
     v.addEventListener("timeupdate", () => { if (v.duration) dur.textContent = clock(v.duration - v.currentTime); });
     v.addEventListener("play", () => box.classList.add("auto"));
     v.addEventListener("pause", () => box.classList.remove("auto"));
@@ -1655,6 +1698,14 @@ function mediaBox(item, of) {
   return box;
 }
 
+// A picture or video that cannot show says why on the post, instead of vanishing.
+const privateMedia = (u) => /^https:\/\/(mail|chat)\.google\.com\//.test(u || "");
+function mediaNote(text) {
+  const d = el("div", "media-note");
+  d.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 5v6.6l-3-3-4 4-4-4-7 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2M3 19v-1.6l7-7 4 4 4-4 3 3V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2"/></svg>';
+  d.append(el("span", null, text));
+  return d;
+}
 // 2-4 images share one rounded frame; a 5th+ image is reachable from the lightbox only.
 function imageGrid(imgs, of) {
   const box = el("div", `media grid n${Math.min(imgs.length, 4)}`);
@@ -1739,6 +1790,7 @@ function linkOf(it) {
   if (it.url) return it.url;
   if (s.kind === "chat") return s.variant === "chatfree" ? `${s.base}/post/${it.id}` : `${s.base}/#${it.id}`;
   if (s.kind === "hateder") return `${s.base}/n/${it.id}`;
+  if (s.kind === "pyfeed") return `${s.base}#m${it.id}`;
   if (s.kind === "emess" && it.feed) return `${s.base}/online/${it.feed}?item=${it.id}`;
   if (s.kind === "authenti") return `${s.base}/?msg=${it.id}`;
   if (s.kind === "kore") return `${s.base}/flashNews`;
@@ -1794,17 +1846,21 @@ function render(it, fresh) {
       col.append(more);
     }
   }
-  const imgs = n.media.filter((x) => x.kind === "image");
+  // A picture kept in the poster's own Google account (Gmail, Google Chat) opens for nobody else: not loaded, a note says so.
+  const priv = n.media.filter((x) => privateMedia(x.url)), media = n.media.filter((x) => !privateMedia(x.url));
+  const imgs = media.filter((x) => x.kind === "image");
   const addMedia = (at) => {
     const out = [];
     if (imgs.length > 1) out.push(imageGrid(imgs, it));
-    for (const m of n.media) {
+    for (const m of media) {
       if (m.kind === "audio") out.push(audioBox(m.url));
       else if (m.kind === "video" || imgs.length === 1) out.push(mediaBox(m, it));
     }
+    if (priv.length) out.push(mediaNote(priv.length === 1 ? "תמונה לא מוצגת: היא שמורה בחשבון Google של מי שפרסם אותה, ורק הוא יכול לפתוח אותה."
+      : `${priv.length} תמונות לא מוצגות: הן שמורות בחשבון Google של מי שפרסם אותן, ורק הוא יכול לפתוח אותן.`));
     at ? at.replaceWith(...out) : col.append(...out);
   };
-  if (textOnly(it.src) && n.media.length) {
+  if (textOnly(it.src) && media.length) {
     const vids = n.media.filter((x) => x.kind === "video").length;
     const label = vids ? (imgs.length ? "הצגת התמונות והסרטון" : "הצגת הסרטון") : imgs.length > 1 ? `הצגת ${imgs.length} תמונות` : "הצגת התמונה";
     const b = el("button", "chip media-btn", label); b.addEventListener("click", () => addMedia(b)); col.append(b);
@@ -3902,7 +3958,7 @@ function picsAdd(items) {
   const grid = $("#feed .gallery");
   if (!grid) return;
   grid.querySelector(".g-end")?.remove();
-  for (const it of items) for (const m of norm(it).media.filter((x) => x.kind === "image")) {
+  for (const it of items) for (const m of norm(it).media.filter((x) => x.kind === "image" && !privateMedia(x.url))) {
     if (picsUrls.includes(m.url)) continue;
     const at = picsUrls.push(m.url) - 1; picsItems.push(it);
     const b = el("button", "g-item"), img = el("img"); img.src = m.url; img.loading = "lazy"; img.alt = "";
@@ -3960,7 +4016,7 @@ function popular(it, median) {
   const usual = Math.max(1, (LEARN.ch[it.src] ?? median[it.src] ?? r) * hourWeight(new Date(it.t).getHours()));
   return soFar / usual >= (ST_LEVELS[S.stLevel ?? 1] || ST_LEVELS[1])[0];
 }
-const hasPic = (it) => norm(it).media.some((m) => m.kind === "image" || m.kind === "video");
+const hasPic = (it) => norm(it).media.some((m) => (m.kind === "image" || m.kind === "video") && !privateMedia(m.url));
 let ST = { at: 0, items: [] }, stBusy = null;
 // Every channel that is on, back to the window (3 pages at most), every 3 minutes at most.
 function stLoad(force) {

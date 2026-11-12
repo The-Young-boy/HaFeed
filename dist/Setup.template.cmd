@@ -6,16 +6,20 @@ rem /quiet: the whole install with no window (for technicians). Exit code 0 = do
 rem 1 = failed (details in %ProgramData%\HagizraFeed\setup.log). Windows asks for admin unless already elevated.
 set "HZ_SELF=%~f0"
 set "HZ_MODE=%~1"
+set "HZ_PS1=%LOCALAPPDATA%\HagizraFeed\setup.ps1"
+rem The script part runs as a file (-File), not as text (antivirus programs block "iex" of text read from a file).
+rem This file is a valid .ps1 too; copied with a BOM so Windows PowerShell reads the Hebrew as UTF-8.
+powershell.exe -NoProfile -Command "[void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($env:HZ_PS1)); [IO.File]::WriteAllText($env:HZ_PS1, [IO.File]::ReadAllText($env:HZ_SELF, [Text.Encoding]::UTF8), [Text.UTF8Encoding]::new($true))"
 if /i "%~1"=="/quiet" goto quiet
 if "%~1"=="" goto gui
-powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "iex ([IO.File]::ReadAllText($env:HZ_SELF,[Text.Encoding]::UTF8))"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%HZ_PS1%"
 exit /b %errorlevel%
 :quiet
 set "HZ_MODE=quiet"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "iex ([IO.File]::ReadAllText($env:HZ_SELF,[Text.Encoding]::UTF8))"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%HZ_PS1%"
 exit /b %errorlevel%
 :gui
-start "" conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "iex ([IO.File]::ReadAllText($env:HZ_SELF,[Text.Encoding]::UTF8))"
+start "" conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%HZ_PS1%"
 exit /b
 #>
 # ====================================================================================
@@ -26,6 +30,9 @@ exit /b
 #  3. מתקין את חבילת הפיד (MSIX חתום בתעודה עצמית). חבילה לא חתומה לא יכולה להריץ exe.
 # ====================================================================================
 $ErrorActionPreference = 'Stop'
+# The admin step gets its mode, result file and the installer's path as arguments: an elevated process does
+# not inherit the environment.
+if ($args.Count -ge 3) { $env:HZ_MODE = $args[0]; $env:HZ_OUT = $args[1]; $env:HZ_SELF = $args[2] }
 $Self    = $env:HZ_SELF
 $Version = '{{VERSION}}'
 $PkgName = 'HagizraFeed'
@@ -485,9 +492,7 @@ $Worker = {
     # in the request, as the explanation page shows). The step writes its result to a file.
     function Elevated($arg) {
         $out = "$env:ProgramData\HagizraFeed\step-$([guid]::NewGuid().ToString('N')).txt"
-        $q = $Self.Replace("'", "''")
-        $cmd = "`$env:HZ_SELF='$q'; `$env:HZ_MODE='$arg'; `$env:HZ_OUT='$out'; iex ([IO.File]::ReadAllText(`$env:HZ_SELF,[Text.Encoding]::UTF8))"
-        try { Start-Process conhost.exe -ArgumentList "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"$cmd`"" -Verb RunAs -Wait | Out-Null }
+        try { Start-Process conhost.exe -ArgumentList "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$env:HZ_PS1`" $arg `"$out`" `"$Self`"" -Verb RunAs -Wait | Out-Null }
         catch { return -1 }   # המשתמש סירב לבקשת המנהל
         if (Test-Path $out) { [int](Get-Content $out -Raw) } else { 10 }
     }

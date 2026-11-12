@@ -226,7 +226,7 @@ impl IFeedResourceProvider_Impl for Provider_Impl {
         if let Some(q) = uri.split_once("/winfeed/proxy?").map(|(_, q)| q) {
             let url = http::query(q, "u").next().unwrap_or_default();
             let method = http::query(q, "m").next().unwrap_or_else(|| "GET".into());
-            let body = http::query(q, "b").next().unwrap_or_default();
+            let mut body = http::query(q, "b").next().unwrap_or_default();
             let mut headers: String = http::query(q, "h").map(|h| h + "\r\n").collect();
             let host = url.trim_start_matches("https://").split('/').next().unwrap_or("");
             if let Some(c) = login::cookie_for(host).or_else(|| login::guest_cookie(host)) {
@@ -238,11 +238,14 @@ impl IFeedResourceProvider_Impl for Provider_Impl {
             if !matches!(method.as_str(), "GET" | "POST") {
                 return args.SetResponse(&respond(b"method", "text/plain", 405)?);
             }
-            if method == "GET" {
+            // A channel that signs in with a token in the request body (see login::with_token).
+            if method == "POST" { if let Some(b) = login::with_token(host, &body) { body = b; } }
+            // c=1: a POST that only reads (a channel's API that takes its query as a POST body) is cached like a GET.
+            if method == "GET" || http::query(q, "c").next().as_deref() == Some("1") {
                 // From the cache (see http::cached): 425 = still loading the first time, the page asks again.
                 let h = host.to_string();
                 let got = http::cached(q, move || {
-                    let r = http::fetch("GET", &url, &headers, b"");
+                    let r = http::fetch(&method, &url, &headers, body.as_bytes());
                     if let (Some(r), None) = (&r, login::cookie_for(&h)) { login::keep_guest(&h, &r.set_cookies); }
                     r
                 });
