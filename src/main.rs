@@ -162,8 +162,8 @@ impl IFeedResourceProvider_Impl for Provider_Impl {
             let q = q.trim_start_matches('?');
             if let Some(a) = http::query(q, "auto").next() { update::set_auto(a == "1"); }
             match http::query(q, "do").next().as_deref() {
-                Some("check") => update::check(false),
-                Some("install") => { std::thread::spawn(|| update::check(true)); }
+                Some("check") => update::check(false, false),
+                Some("install") => { std::thread::spawn(|| update::check(true, true)); }
                 _ => {}
             }
             return args.SetResponse(&respond(update::status().as_bytes(), "application/json", 200)?);

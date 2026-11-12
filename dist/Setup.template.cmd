@@ -8,7 +8,7 @@ if "%~1"=="" goto gui
 powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "iex ([IO.File]::ReadAllText($env:HZ_SELF,[Text.Encoding]::UTF8))"
 exit /b %errorlevel%
 :gui
-start "" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "iex ([IO.File]::ReadAllText($env:HZ_SELF,[Text.Encoding]::UTF8))"
+start "" conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "iex ([IO.File]::ReadAllText($env:HZ_SELF,[Text.Encoding]::UTF8))"
 exit /b
 #>
 # ====================================================================================
@@ -149,6 +149,10 @@ if ($env:HZ_MODE) {
             default  { 10 }
         }
     } catch { Write-Log "$($env:HZ_MODE) failed: $_"; $code = 10 }
+    if ($env:HZ_OUT) {
+        Get-ChildItem (Split-Path $env:HZ_OUT) -Filter 'step-*.txt' -ErrorAction SilentlyContinue | Remove-Item -ErrorAction SilentlyContinue
+        try { Set-Content $env:HZ_OUT $code } catch {}
+    }
     exit $code
 }
 
@@ -166,11 +170,11 @@ $mica  = $build -ge 22621
 $T = if ($light) { @{
     FG='#1A1A1A'; FG2='#616161'; WINBG='#F3F3F3'; CARD='#C8FFFFFF'; CARDBORDER='#14000000'; FOOTER='#08000000'
     CTRL='#C8FFFFFF'; CTRLBORDER='#1F000000'; ACCENT='#00609C'; ACCENTSOFT='#1A00609C'; ONACCENT='#FFFFFF'
-    RED='#E5484D'; GOOD='#0F7B0F'; BAD='#C42B1C'; TRACK='#1F000000' }
+    RED='#E5484D'; GOOD='#0F7B0F'; BAD='#C42B1C'; TRACK='#1F000000'; UACBG='#FFFFFF'; UACBTN='#0067C0'; UACON='#FFFFFF' }
 } else { @{
     FG='#FFFFFF'; FG2='#C5C5C5'; WINBG='#202020'; CARD='#0FFFFFFF'; CARDBORDER='#1AFFFFFF'; FOOTER='#1F000000'
     CTRL='#12FFFFFF'; CTRLBORDER='#1AFFFFFF'; ACCENT='#4FA8E8'; ACCENTSOFT='#264FA8E8'; ONACCENT='#00121F'
-    RED='#FF5A50'; GOOD='#6CCB5F'; BAD='#FF99A4'; TRACK='#26FFFFFF' }
+    RED='#FF5A50'; GOOD='#6CCB5F'; BAD='#FF99A4'; TRACK='#26FFFFFF'; UACBG='#2B2B2B'; UACBTN='#4CC2FF'; UACON='#000000' }
 }
 if ($mica) { $T.WINBG = 'Transparent' }
 
@@ -252,6 +256,39 @@ $xaml = @'
         <TextBlock x:Name="HomeNote" TextWrapping="Wrap" Foreground="{{FG2}}" FontSize="12.5" Margin="4,14,4,0" LineHeight="19"/>
       </StackPanel>
 
+      <!-- ===== לפני בקשת המנהל: הסבר ותמונה של החלון של Windows ===== -->
+      <StackPanel x:Name="PageUac" Visibility="Collapsed">
+        <TextBlock x:Name="UacTitle" Text="אישור מנהל, פעם אחת" FontFamily="Segoe UI" FontSize="20" FontWeight="SemiBold" Margin="2,0,0,8"/>
+        <TextBlock x:Name="UacText" TextWrapping="Wrap" Foreground="{{FG2}}" LineHeight="21" Margin="2,0,2,18"/>
+        <Grid HorizontalAlignment="Center">
+          <Border Width="380" CornerRadius="8" Background="{{UACBG}}" BorderBrush="{{CARDBORDER}}" BorderThickness="1" Margin="0,0,0,8">
+            <Border.Effect><DropShadowEffect BlurRadius="22" ShadowDepth="4" Opacity="0.28"/></Border.Effect>
+            <StackPanel>
+              <TextBlock Text="בקרת חשבון משתמש" FontSize="12" Foreground="{{FG2}}" Margin="18,12,18,0"/>
+              <TextBlock Text="האם ברצונך לאפשר לאפליקציה זו לבצע שינויים במכשיר שלך?" TextWrapping="Wrap" FontSize="17" FontWeight="SemiBold" Margin="18,8,18,16"/>
+              <StackPanel Orientation="Horizontal" Margin="18,0,18,0">
+                <Border Width="32" Height="32" CornerRadius="4" Background="#1E1E1E">
+                  <TextBlock Style="{StaticResource Glyph}" Text="&#xE756;" FontSize="16" Foreground="White" HorizontalAlignment="Center"/>
+                </Border>
+                <TextBlock Text="Console Window Host" FontSize="15" Margin="12,0,0,0" VerticalAlignment="Center"/>
+              </StackPanel>
+              <TextBlock Text="מפרסם מאומת: Microsoft Windows" FontSize="12.5" Foreground="{{FG2}}" Margin="18,10,18,18"/>
+              <Grid Margin="18,0,18,18">
+                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="8"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Height="32" CornerRadius="4" Background="{{UACBTN}}">
+                  <TextBlock Text="כן" Foreground="{{UACON}}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <Border Grid.Column="2" Height="32" CornerRadius="4" Background="{{CTRL}}" BorderBrush="{{CTRLBORDER}}" BorderThickness="1">
+                  <TextBlock Text="לא" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <Border x:Name="UacRing" Grid.Column="0" Margin="-6" CornerRadius="9" BorderBrush="{{RED}}" BorderThickness="2.5"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </Grid>
+        <TextBlock Text="דוגמה. החלון האמיתי של Windows יופיע אחרי &quot;המשך&quot;." HorizontalAlignment="Center" FontSize="12" Foreground="{{FG2}}" Margin="0,4,0,0"/>
+      </StackPanel>
+
       <!-- ===== עבודה ===== -->
       <StackPanel x:Name="PageWork" Visibility="Collapsed">
         <TextBlock x:Name="WorkTitle" Text="מתקין" FontFamily="Segoe UI" FontSize="20" FontWeight="SemiBold" Margin="2,0,0,12"/>
@@ -298,7 +335,7 @@ foreach ($k in $T.Keys) { $xaml = $xaml.Replace("{{$k}}", $T[$k]) }
 $xaml = $xaml.Replace('{{GLASS}}', $(if ($mica) { '-1' } else { '0' }))
 $win = [Windows.Markup.XamlReader]::Parse($xaml)
 $ui = @{}
-foreach ($n in 'Logo','VerChip','Chips','Plan','HomeNote','PageHome','PageWork','WorkTitle','WorkError','Prog','Steps','PageDone','DoneDisc','DoneGlyph','DoneTitle','DoneText','Guide','BtnPrimary','BtnSecondary','BtnClose') { $ui[$n] = $win.FindName($n) }
+foreach ($n in 'Logo','VerChip','Chips','Plan','HomeNote','PageHome','PageUac','UacTitle','UacText','UacRing','PageWork','WorkTitle','WorkError','Prog','Steps','PageDone','DoneDisc','DoneGlyph','DoneTitle','DoneText','Guide','BtnPrimary','BtnSecondary','BtnClose') { $ui[$n] = $win.FindName($n) }
 $ErrorActionPreference = 'Continue'   # שגיאה ב-handler לא מפילה את החלון
 function Brush($c) { [Windows.Media.BrushConverter]::new().ConvertFromString($c) }
 
@@ -373,7 +410,7 @@ function Set-RowState($row, $state, $note) {
     }
     if ($note) { $row.Desc.Text = $note }
 }
-function Show-Page($name) { foreach ($p in 'PageHome','PageWork','PageDone') { $ui[$p].Visibility = if ($p -eq $name) { 'Visible' } else { 'Collapsed' } } }
+function Show-Page($name) { foreach ($p in 'PageHome','PageUac','PageWork','PageDone') { $ui[$p].Visibility = if ($p -eq $name) { 'Visible' } else { 'Collapsed' } } }
 
 # ---------- מצב המחשב ----------
 $State = @{}
@@ -423,9 +460,15 @@ $Sync = [hashtable]::Synchronized(@{})
 $Worker = {
     param($Sync, $Self, $PkgName, $Mode)
     function Step($i, $state, $note) { $Sync["s$i"] = @($state, $note) }
+    # The admin step, with no window: conhost --headless runs PowerShell (Windows names it "Console Window Host"
+    # in the request, as the explanation page shows). The step writes its result to a file.
     function Elevated($arg) {
-        try { (Start-Process -FilePath $Self -ArgumentList $arg -Verb RunAs -WindowStyle Hidden -Wait -PassThru).ExitCode }
-        catch { -1 }   # המשתמש סירב לבקשת המנהל
+        $out = "$env:ProgramData\HagizraFeed\step-$([guid]::NewGuid().ToString('N')).txt"
+        $q = $Self.Replace("'", "''")
+        $cmd = "`$env:HZ_SELF='$q'; `$env:HZ_MODE='$arg'; `$env:HZ_OUT='$out'; iex ([IO.File]::ReadAllText(`$env:HZ_SELF,[Text.Encoding]::UTF8))"
+        try { Start-Process conhost.exe -ArgumentList "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"$cmd`"" -Verb RunAs -Wait | Out-Null }
+        catch { return -1 }   # המשתמש סירב לבקשת המנהל
+        if (Test-Path $out) { [int](Get-Content $out -Raw) } else { 10 }
     }
     try {
         if ($Mode -eq 'install') {
@@ -595,19 +638,38 @@ function Show-Done($mode) {
     $ui.BtnClose.Content = if ($restart) { 'אחר כך' } else { 'סגירה' }
 }
 
+# ---------- לפני בקשת המנהל ----------
+# Windows asks only when it is needed; before that, a page says what will appear and where to click.
+function Show-Uac($mode) {
+    Show-Page 'PageUac'
+    $ui.UacText.Text = if ($mode -eq 'install') {
+        'כדי שהפיד יופיע בלוח, ההתקנה משנה קובץ הגדרות אחד של Windows ומאשרת את החתימה של הפיד. בשביל זה Windows מבקש אישור מנהל, פעם אחת. אחרי "המשך" יופיע חלון כמו בדוגמה. לוחצים "כן". השם בחלון הוא Console Window Host, רכיב של Windows שמבצע את השינוי בלי להציג חלון.'
+    } else {
+        'כדי להחזיר את Windows למצב המקורי, ההסרה מחזירה את קובץ ההגדרות ומוחקת את החתימה של הפיד. בשביל זה Windows מבקש אישור מנהל, פעם אחת. אחרי "המשך" יופיע חלון כמו בדוגמה. לוחצים "כן". השם בחלון הוא Console Window Host, רכיב של Windows שמבצע את השינוי בלי להציג חלון.'
+    }
+    $a = [Windows.Media.Animation.DoubleAnimation]::new(1, 0.25, [Windows.Duration]::new([TimeSpan]::FromSeconds(0.8)))
+    $a.AutoReverse = $true; $a.RepeatBehavior = [Windows.Media.Animation.RepeatBehavior]::Forever
+    $ui.UacRing.BeginAnimation([Windows.UIElement]::OpacityProperty, $a)
+    $ui.BtnPrimary.Content = 'המשך'; $ui.BtnPrimary.Visibility = 'Visible'
+    $ui.BtnSecondary.Visibility = 'Collapsed'
+    $ui.BtnClose.Content = 'חזרה'
+    $script:Next = 'elevate'; $script:After = $mode
+}
+
 # ---------- כפתורים ----------
 $script:Next = 'install'
 $ui.BtnPrimary.Add_Click({
     switch ($script:Next) {
-        'install' { Start-Work 'install' }
+        'install' { if ($State.Open -and $State.Trusted) { Start-Work 'install' } else { Show-Uac 'install' } }
+        'elevate' { $script:Next = 'install'; Start-Work $script:After }
         'home'    { $script:Next = 'install'; Show-Home }
         'restart' { shutdown.exe /r /t 5; $win.Close() }
         'widgets' { Start-Process 'ms-widgets:'; $win.Close() }
         'close'   { $win.Close() }
     }
 })
-$ui.BtnSecondary.Add_Click({ Start-Work 'uninstall' })
-$ui.BtnClose.Add_Click({ $win.Close() })
+$ui.BtnSecondary.Add_Click({ if ((Test-Path "$Policy.orig") -or $State.Trusted) { Show-Uac 'uninstall' } else { Start-Work 'uninstall' } })
+$ui.BtnClose.Add_Click({ if ($script:Next -eq 'elevate') { $script:Next = 'install'; Show-Home } else { $win.Close() } })
 
 Show-Home
 [void]$win.ShowDialog()

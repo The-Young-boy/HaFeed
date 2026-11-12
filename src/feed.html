@@ -2170,14 +2170,15 @@ async function showUpdate(st) {
   const has = st.latest && st.latest !== st.current && st.state !== "current";
   const say = {
     checking: ["בודק אם יש גרסה חדשה...", ""],
-    downloading: [`מוריד את גרסה ${st.latest}...`, ""],
-    installing: [`מתקין את גרסה ${st.latest}. הפיד ייסגר לרגע ויחזור.`, ""],
+    downloading: [`מוריד את גרסה ${st.latest}...`, "מעדכן כעת..."],
+    installing: [`מתקין את גרסה ${st.latest}. הפיד ייסגר לרגע ויחזור.`, "מעדכן כעת..."],
     failed: [`העדכון לא הצליח: ${st.note}`, "לנסות שוב"],
     current: ["זו הגרסה האחרונה.", "בדיקה"],
     idle: has ? [`יש גרסה חדשה: ${st.latest}`, "עדכון עכשיו"] : ["", "בדיקת עדכונים"],
   }[st.state] || ["", "בדיקת עדכונים"];
   text.textContent = say[0];
   btn.textContent = say[1]; btn.hidden = !say[1];
+  btn.disabled = ["downloading", "installing"].includes(st.state);
   btn.dataset.do = has ? "install" : st.state === "failed" && st.latest ? "install" : "check";
   clearTimeout(updTimer);
   if (["checking", "downloading", "installing"].includes(st.state)) updTimer = setTimeout(() => showUpdate(), 1500);
@@ -2185,6 +2186,7 @@ async function showUpdate(st) {
 $("#updBtn").addEventListener("click", async (e) => {
   const what = e.currentTarget.dataset.do;
   $("#updText").textContent = what === "install" ? "מתחיל..." : "בודק...";
+  if (what === "install") { e.currentTarget.textContent = "מעדכן כעת..."; e.currentTarget.disabled = true; }
   showUpdate(await upd("?do=" + what));
 });
 $("#updAuto").addEventListener("click", async () => showUpdate(await upd("?auto=" + ($("#updAuto").getAttribute("aria-checked") === "true" ? "0" : "1"))));

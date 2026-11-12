@@ -52,7 +52,8 @@ fn set(state: &'static str, note: &str) {
 }
 
 /// One round: look, and install when asked (or when updates are automatic).
-pub fn check(install: bool) {
+/// `ui`: the user pressed "update" in About, so a small window shows the install; a background update is silent.
+pub fn check(install: bool, ui: bool) {
     let Some(current) = VERSION else { return set("idle", "") };
     set("checking", "");
     let Some(r) = http::fetch("GET", API, "User-Agent: HaFeed\r\nAccept: application/vnd.github+json\r\n", b"") else { return set("failed", "אין חיבור ל-GitHub") };
@@ -72,10 +73,19 @@ pub fn check(install: bool) {
     // The task removes itself after the install; the board starts the new provider on its own.
     let ps1 = dir().join("update.ps1");
     let script = format!(
-        "try {{ Add-AppxPackage -Path '{m}' -ForceApplicationShutdown -ErrorAction Stop }} catch {{ $_ | Out-File '{log}' }}\r\nRemove-Item '{m}' -Force -ErrorAction SilentlyContinue\r\nschtasks.exe /delete /tn {TASK} /f | Out-Null\r\n",
+        "$ProgressPreference = 'SilentlyContinue'\r\ntry {{ Add-AppxPackage -Path '{m}' -ForceApplicationShutdown -ErrorAction Stop }} catch {{ $_ | Out-File '{log}' }}\r\nRemove-Item '{m}' -Force -ErrorAction SilentlyContinue\r\nschtasks.exe /delete /tn {TASK} /f | Out-Null\r\n",
         m = msix.display(), log = dir().join("update-error.txt").display());
-    if std::fs::write(&ps1, script).is_err() { return set("failed", "לא ניתן לכתוב את קובץ העדכון") }
-    let tr = format!("powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{}\"", ps1.display());
+    let script = if !ui { script } else {
+        // The logo beside the script: the package folder is replaced during the install.
+        let logo = dir().join("logo.png");
+        if let Ok(exe) = std::env::current_exe() { let _ = std::fs::copy(exe.with_file_name("Images").join("logo.png"), &logo); }
+        include_str!("update-window.ps1").replace("{MSIX}", &msix.display().to_string()).replace("{LOG}", &dir().join("update-error.txt").display().to_string())
+            .replace("{LOGO}", &logo.display().to_string()).replace("{VER}", &tag).replace("{TASK}", TASK)
+    };
+    // With a BOM: Windows PowerShell reads a file without one as ANSI, and the window is in Hebrew.
+    if std::fs::write(&ps1, format!("\u{FEFF}{script}")).is_err() { return set("failed", "לא ניתן לכתוב את קובץ העדכון") }
+    // conhost --headless: no console window at all (-WindowStyle Hidden still shows one for a moment).
+    let tr = format!("conhost.exe --headless powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{}\"", ps1.display());
     let run = |args: &[&str]| {
         use std::os::windows::process::CommandExt;
         std::process::Command::new("schtasks.exe").args(args).creation_flags(0x0800_0000).status().map(|s| s.success()).unwrap_or(false)
@@ -93,7 +103,7 @@ pub fn start() {
     std::thread::spawn(|| {
         std::thread::sleep(std::time::Duration::from_secs(120));
         loop {
-            check(auto());
+            check(auto(), false);
             std::thread::sleep(std::time::Duration::from_secs(6 * 3600));
         }
     });
