@@ -43,7 +43,8 @@ $m = $m -replace 'Name="HagizraWidget"', 'Name="HagizraFeed"' `
         -replace 'Publisher="CN=HaFeed Dev"', 'Publisher="CN=Hagizra Feed"' `
         -replace '<PublisherDisplayName>[^<]*', '<PublisherDisplayName>יאנג בוי' `
         -replace '5D2F8A3E-7C41-4B9E-9A63-2E8F0C7D1B54', $Clsid `
-        -replace '53219DDD-D127-43D1-8F2A-E0137971AFAF', $WClsid
+        -replace '53219DDD-D127-43D1-8F2A-E0137971AFAF', $WClsid `
+        -replace 'https://dev\.hagizra\.news/', 'https://hagizra.news/'   # the dev copy has its own address, so the two never share requests or settings
 if ($m -match 'HaFeed Dev') { throw 'manifest still names the dev publisher' }
 if ($m -notmatch $WClsid -or $m -match '53219DDD') { throw 'manifest widgets class not replaced' }
 [IO.File]::WriteAllText("$stage\AppxManifest.xml", $m, [Text.UTF8Encoding]::new($false))

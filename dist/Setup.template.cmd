@@ -2,9 +2,16 @@
 @echo off
 rem HaFeed for the Windows widgets board - single-file installer.
 rem No argument: the GUI (runs as the user). With an argument: one elevated policy step, called by the GUI.
+rem /quiet: the whole install with no window (for technicians). Exit code 0 = done, 3010 = done, restart needed,
+rem 1 = failed (details in %ProgramData%\HagizraFeed\setup.log). Windows asks for admin unless already elevated.
 set "HZ_SELF=%~f0"
 set "HZ_MODE=%~1"
+if /i "%~1"=="/quiet" goto quiet
 if "%~1"=="" goto gui
+powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "iex ([IO.File]::ReadAllText($env:HZ_SELF,[Text.Encoding]::UTF8))"
+exit /b %errorlevel%
+:quiet
+set "HZ_MODE=quiet"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "iex ([IO.File]::ReadAllText($env:HZ_SELF,[Text.Encoding]::UTF8))"
 exit /b %errorlevel%
 :gui
@@ -141,7 +148,7 @@ function Remove-Cert {
 }
 
 # ---------- מצב מנהל: צעד אחד ויציאה ----------
-if ($env:HZ_MODE) {
+if ($env:HZ_MODE -and $env:HZ_MODE -ne 'quiet') {
     try {
         $code = switch ($env:HZ_MODE) {
             'setup'  { Install-Cert; Invoke-PolicyOpen }
@@ -440,11 +447,14 @@ function Show-Home {
     else { [void]$ui.Chips.Children.Add((New-Chip $(if ($State.Taskbar) { $true } else { $null }) $(if ($State.Taskbar) { "הכפתור בשורת המשימות דלוק" } else { "הכפתור בשורת המשימות כבוי, יודלק" }))) }
     [void]$ui.Chips.Children.Add((New-Chip $(if ($State.Open) { $true } else { $null }) $(if ($State.Open) { 'פידים של צד שלישי פתוחים' } else { 'פידים של צד שלישי סגורים' })))
     if ($State.Pkg) { [void]$ui.Chips.Children.Add((New-Chip $true "מותקנת גרסה $($State.Pkg.Version)")) }
+    if ($script:Latest) { [void]$ui.Chips.Children.Add((New-Chip $true "גרסה חדשה יותר ב-GitHub: $($script:Latest)")) }
 
         $prep = 'מיקרוסופט מאפשרת להחליף את החדשות בלוח רק באירופה. המתקין מוסיף את האזור שלך לשלושה כללים בקובץ ההגדרות האזוריות של Windows (ושומר עותק של המקור), ומאשר את החתימה של הפיד. בונוס: קישורים מהלוח ייפתחו בדפדפן שלך ולא ב-Edge.'
     [void](New-Row $ui.Plan 0xE7EF 'הכנת Windows' $(if ($State.Open -and $State.Trusted) { 'כבר מוכן במחשב הזה.' } else { "$prep תופיע בקשה לאישור מנהל." }))
     [void](New-Row $ui.Plan 0xE896 'Windows App Runtime' $(if ($State.Runtime) { 'רכיב של מיקרוסופט שהפיד צריך. כבר מותקן.' } else { 'רכיב של מיקרוסופט שהפיד צריך. יורד ישירות ממיקרוסופט (כ-60MB).' }))
-    [void](New-Row $ui.Plan 0xE789 'הפיד' 'רכיב קטן שמציג בלוח את הידיעות, התמונות והסרטונים, ומוסיף ווידג''טים והתראות. צורך כ-5MB זיכרון.' -Last)
+    $feed = 'רכיב קטן שמציג בלוח את הידיעות, התמונות והסרטונים, ומוסיף ווידג''טים והתראות. צורך כ-5MB זיכרון.'
+    if ($script:Latest) { $feed += " יש ב-GitHub גרסה חדשה יותר ($($script:Latest)), והיא זו שתותקן. אחר כך הפיד מתעדכן לבד, בלי לעשות כלום." }
+    [void](New-Row $ui.Plan 0xE789 'הפיד' $feed -Last)
 
     $ui.HomeNote.Text = 'אחרי עדכון גדול של Windows, ייתכן שהקובץ יחזור למקור והפיד ייעלם מהלוח. אם זה קורה, מריצים את הקובץ הזה שוב.'
     $ui.BtnPrimary.IsEnabled = $State.Win11 -and $State.Widgets -and -not $State.PolicyOff
@@ -670,6 +680,37 @@ $ui.BtnPrimary.Add_Click({
 })
 $ui.BtnSecondary.Add_Click({ if ((Test-Path "$Policy.orig") -or $State.Trusted) { Show-Uac 'uninstall' } else { Start-Work 'uninstall' } })
 $ui.BtnClose.Add_Click({ if ($script:Next -eq 'elevate') { $script:Next = 'install'; Show-Home } else { $win.Close() } })
+
+# ---------- /quiet: כל ההתקנה בלי חלון, לטכנאים ----------
+# The same steps as the button, in this process; the window is built above but never shown.
+if ($env:HZ_MODE -eq 'quiet') {
+    $Sync.Clear(); $Sync.Open = Test-PolicyOpen; $Sync.HasBackup = Test-Path "$Policy.orig"; $Sync.Trusted = Test-Trusted
+    & $Worker $Sync $Self $PkgName 'install'
+    Write-Log "quiet install: $($Sync.Result) $($Sync.Error)"
+    exit $(if ($Sync.Result -ne 'ok') { 1 } elseif ($Sync.Restart) { 3010 } else { 0 })
+}
+
+# ---------- גרסה חדשה יותר ב-GitHub ----------
+# Asked beside the window (it may take seconds); when there is one, the home page says it is the one installed.
+$script:Latest = $null
+$LatestPs = [PowerShell]::Create()
+[void]$LatestPs.AddScript({ param($v)
+    try {
+        $r = Invoke-RestMethod 'https://api.github.com/repos/The-Young-boy/HaFeed/releases/latest' -Headers @{ 'User-Agent' = 'HaFeed-Setup' } -TimeoutSec 15
+        $t = [version]($r.tag_name.TrimStart('v'))
+        if (($r.assets | Where-Object name -eq 'HaFeed.msix') -and $t -gt [version]$v) { "$t" }
+    } catch { }
+}).AddArgument($Version)
+$LatestRun = $LatestPs.BeginInvoke()
+$LatestTimer = New-Object Windows.Threading.DispatcherTimer
+$LatestTimer.Interval = [TimeSpan]::FromMilliseconds(400)
+$LatestTimer.Add_Tick({
+    if (-not $LatestRun.IsCompleted) { return }
+    $LatestTimer.Stop()
+    $script:Latest = @($LatestPs.EndInvoke($LatestRun))[0]
+    if ($script:Latest -and $ui.PageHome.Visibility -eq 'Visible') { Show-Home }
+})
+$LatestTimer.Start()
 
 Show-Home
 [void]$win.ShowDialog()

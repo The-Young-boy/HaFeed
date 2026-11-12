@@ -34,7 +34,7 @@
   document.body.classList.toggle("raw", /[?&]raw/.test(location.search) || location.search.includes(",raw"));
   const host = new AdaptiveCards.HostConfig(await (await fetch("/widgets/widget-" + (dark ? "dark" : "light") + ".json")).json());
   const cards = await (await fetch("/widgets/cards.json")).json();
-  const names = { breaking: "מבזקים", channel: "ערוץ או פיד", top: "כותרת ראשית", popular: "פופולרי עכשיו", cats: "כותרת מכל קטגוריה", deal: "דיל אחרון", search: "חיפוש בפיד" };
+  const names = { breaking: "מבזקים", channel: "ערוץ או פיד", top: "כותרת ראשית", popular: "פופולרי עכשיו", cats: "כותרת מכל קטגוריה", deal: "דיל אחרון", status: "סטטוס", search: "חיפוש בפיד" };
   const out = document.getElementById("out");
   for (const kind of (location.search.slice(1).replace(/[,&]?raw/, "") || "breaking,channel,top,popular,cats,deal,search").split(",").filter(Boolean)) {
     out.insertAdjacentHTML("beforeend", `<h2>${names[kind]}</h2><div class="row" id="r-${kind}"></div>`);

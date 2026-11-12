@@ -23,5 +23,5 @@ for ($i = 0; $i -lt 10; $i++) {
     try { Copy-Item target\release\hagizra-widget.exe $Dst -Force; break } catch { Start-Sleep -Milliseconds 400 }
 }
 Copy-Item package\AppxManifest.xml $Dst -Force
-Add-AppxPackage -Register "$Dst\AppxManifest.xml"
+Add-AppxPackage -Register "$Dst\AppxManifest.xml" -ForceApplicationShutdown   # only this package: the board may have restarted its provider
 "deployed $next"

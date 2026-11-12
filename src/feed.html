@@ -64,7 +64,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); }
 /* In the board: the board's own backdrop shows through, the same slight transparency as the widgets. */
 :root.embedded, :root.embedded body { background: transparent; }
 body {
-  font: 15px/1.45 "Segoe UI", system-ui, sans-serif;
+  font: 15px/1.45 var(--face, "Segoe UI"), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -251,6 +251,13 @@ a:hover { text-decoration: underline; }
 .lightbox .next { left: 16px; right: auto; }
 .lightbox .count { position: absolute; bottom: 16px; left: 50%; translate: -50% 0; color: #fff; font-size: 14px; font-weight: 600; background: rgba(0,0,0,.6); padding: 4px 10px; border-radius: 999px; }
 .lightbox .count:empty { display: none; }
+/* Like WhatsApp: the item's text under the picture; three lines, a click shows all of it. */
+.lb-cap { position: absolute; inset-inline: 0; bottom: 0; max-height: 45vh; overflow-y: auto; padding: 36px max(20px, calc(50vw - 340px)) 18px; background: linear-gradient(transparent, rgba(0,0,0,.82) 32px); color: #fff; cursor: pointer; }
+.lb-cap .by { font-size: 12.5px; opacity: .8; margin-bottom: 4px; }
+.lb-cap .txt { font-size: 15px; line-height: 1.55; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.lb-cap.open .txt { display: block; }
+.lb-cap .txt b { display: block; }
+.lightbox:has(.lb-cap:not([hidden])) .count { bottom: auto; top: 18px; }
 
 .toast {
   position: fixed; bottom: 20px; left: 50%; translate: -50% 20px; opacity: 0; z-index: 60;
@@ -309,12 +316,35 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* ---------- settings ---------- */
 .sheet { position: fixed; inset: 0; z-index: 40; display: grid; grid-template-columns: 100%; justify-items: center; align-items: start; background: rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s; overflow-y: auto; }
 .sheet.show { opacity: 1; pointer-events: auto; }
-.sheet .panel { width: min(560px, 100%); margin: 24px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.35); translate: 0 12px; transition: translate .25s cubic-bezier(.2,.8,.2,1); }
+.sheet .panel { width: min(920px, 100%); margin: 24px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.35); translate: 0 12px; transition: translate .25s cubic-bezier(.2,.8,.2,1); }
 .sheet.show .panel { translate: 0 0; }
 .panel header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); border-radius: 18px 18px 0 0; }
 .panel header h2 { margin: 0; font-size: 19px; font-weight: 800; }
 .panel section { padding: 14px 20px 18px; border-bottom: 1px solid var(--line); }
 .panel section:last-child { border-bottom: 0; }
+.acct-line { display: block; font-size: 12px; color: var(--muted); } .acct-line.on { color: var(--good, #3fb950); }
+.linkish { color: var(--accent); font-size: 12px; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+.linkish:disabled { color: var(--muted); text-decoration: none; }
+.nt-more { margin-top: 8px; }
+.reset-sec { text-align: center; }
+.undo { position: fixed; inset-inline: 0; bottom: 18px; margin-inline: auto; width: max-content; max-width: calc(100% - 32px); z-index: 60; display: flex; gap: 14px; align-items: center; padding: 10px 16px; border-radius: 12px; background: var(--bg-raised); border: 1px solid var(--line); box-shadow: 0 12px 30px rgba(0,0,0,.3); }
+.undo button { color: var(--accent); font-weight: 700; }
+/* Settings: as wide as the board allows, the sections of a tab in two columns (one when narrow). */
+#setBody { columns: 2 380px; column-gap: 0; column-rule: 1px solid var(--line); }
+#setBody[data-tab="about"], #setBody[data-tab="feeds"] { columns: 1; }
+/* The columns come out even: a section may go on in the next column, but a heading stays with what follows
+   it, and a row or a control is never cut. */
+#setBody h3 { break-after: avoid; }
+#setBody .row, #setBody .seg, #setBody .swatches, #setBody .faces, #setBody .nt-field, #setBody .hint, #setBody .nums, #setBody .acc-own, #setBody .cut-add, #setBody label { break-inside: avoid; }
+#setBody[data-tab="about"] section { max-width: 560px; margin-inline: auto; }
+/* Search in the settings: every tab, the matching sections, each with where it lives. */
+.set-search { flex: 1; min-width: 0; max-width: 300px; margin-inline: 16px auto; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; background: var(--bg-raised); border: 1px solid var(--line); }
+.set-search:focus-within { border-color: var(--accent); }
+.set-search svg { width: 16px; height: 16px; fill: var(--muted); flex: none; }
+.set-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; }
+#setBody.searching section::before { content: attr(data-where); display: block; font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+#setBody.searching .row.s-miss { display: none; }
+#setNoHit { padding: 40px 20px; text-align: center; color: var(--muted); column-span: all; }
 .panel h3 { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .2px; }
 .cat { margin-top: 14px; }
 .cat:first-child { margin-top: 0; }
@@ -330,8 +360,10 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 ::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 /* The accent colour: twelve squares (Windows, ten colours, your own), a row of 12, 6 or 4 by the width. */
 .swatches { display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; }
-@media (max-width: 560px) { .swatches { grid-template-columns: repeat(6, 1fr); } }
-@media (max-width: 280px) { .swatches { grid-template-columns: repeat(4, 1fr); } }
+/* By the width of its own section (a settings column), not of the screen. */
+.panel section { container-type: inline-size; }
+@container (max-width: 560px) { .swatches { grid-template-columns: repeat(6, 1fr); } }
+@container (max-width: 240px) { .swatches { grid-template-columns: repeat(4, 1fr); } }
 .swatches button { aspect-ratio: 1; border-radius: 10px; position: relative; display: grid; place-items: center; box-shadow: inset 0 0 0 1px rgba(127,127,127,.25); }
 .swatches button[aria-pressed="true"]::after { content: ""; position: absolute; inset: -4px; border-radius: 13px; border: 2px solid var(--text); }
 .swatches .own { background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
@@ -353,6 +385,107 @@ input[type=range].bar:focus-visible::-webkit-slider-thumb { outline: 2px solid v
 .quote-open { margin: 0 0 6px; border-inline-start: 3px solid var(--accent); border-radius: 0 0 6px 6px; background: var(--accent-soft); }
 .quote-open .post { background: transparent; border: 0; animation: none; }
 .qsheet .panel { max-height: calc(100% - 48px); overflow-y: auto; }
+.qsheet .panel > :not(header) { margin: 12px 20px 20px; }
+.qsheet header h2 { font-size: 18px; line-height: 1.35; }
+/* The item the arrow keys are on. */
+#feed .post.kb { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 12px; scroll-margin: 8px; }
+/* Read: a little quieter around the text (never the text itself), once it reached the upper third. */
+#feed .post.read .avatar, #feed .post.read .meta, #feed .post.read .actions { opacity: .8; transition: opacity .6s; }
+/* New items in other tabs since you were last there. */
+#tabs .count { display: inline-block; min-width: 18px; padding: 0 5px; margin-inline-start: 5px; border-radius: 9px; font-size: 11px; line-height: 18px; text-align: center; background: var(--accent); color: #fff; font-weight: 600; vertical-align: 1px; }
+.faces { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.faces button { padding: 10px 8px; border-radius: 12px; border: 1px solid var(--line); text-align: center; }
+.faces button b { display: block; font-size: 20px; font-weight: 600; } .faces button small { color: var(--muted); font-size: 12px; font-family: "Segoe UI", sans-serif; }
+.faces button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+/* An article read in the feed. */
+.reader h1 { font-size: 21px; line-height: 1.35; margin: 0 0 6px; }
+.reader .by { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+.reader img { display: block; max-width: 100%; height: auto; border-radius: 10px; margin: 10px auto; }
+.reader p, .reader li { line-height: 1.75; font-size: 16px; } .reader h2, .reader h3 { margin: 18px 0 6px; font-size: 17px; }
+.reader blockquote { margin: 10px 0; padding: 4px 12px; border-inline-start: 3px solid var(--accent); color: var(--muted); }
+.reader .site { display: inline-block; margin-top: 14px; }
+.post .read-here { margin-top: 6px; }
+/* Same news from more channels: the fuller one stays, with the others named under it. */
+.also { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.also a { color: var(--muted); text-decoration: underline dotted; text-underline-offset: 3px; }
+.also a:hover { color: var(--text); }
+/* Text only (advanced): pictures and videos wait behind a button. */
+.media-btn { margin-top: 8px; }
+/* Highlighted words (advanced). */
+mark.hl { background: color-mix(in srgb, var(--accent) 22%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
+/* The pictures of a tab, in a grid. */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; padding: 10px; }
+.gallery .g-item { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--bg-raised); padding: 0; }
+.gallery .g-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery .g-item span { position: absolute; inset-inline: 0; bottom: 0; padding: 14px 8px 5px; font-size: 11.5px; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.65)); text-align: start; }
+.g-end { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 14px; font-size: 13px; }
+/* ---------- status, like WhatsApp ---------- */
+#statusBtn { position: relative; }
+.st-dot { position: absolute; top: 5px; inset-inline-end: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.st-tiles { display: flex; gap: 8px; padding: 10px 12px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+.st-tile { flex: none; width: 92px; height: 140px; border-radius: 14px; position: relative; overflow: hidden; background: var(--bg-raised); padding: 0; }
+.st-tile > img, .st-tile > .pv { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.st-tile > .pv { display: grid; place-items: center; background: linear-gradient(160deg, #2a3f55, #141a22); }
+.st-tile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 55%, rgba(0,0,0,.7)); }
+.st-tile .ring { position: absolute; top: 6px; inset-inline-start: 6px; z-index: 1; }
+.st-tile span { position: absolute; bottom: 6px; inset-inline: 6px; z-index: 1; color: #fff; font-size: 12px; font-weight: 600; text-align: start; line-height: 1.25; }
+.st-tile.seen { opacity: .7; }
+.ring { position: relative; display: inline-block; flex: none; }
+.ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ring .face { position: absolute; inset: 3px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--bg-raised); }
+.ring .face img { width: 100%; height: 100%; object-fit: cover; }
+.ring .face.col { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; place-items: stretch; }
+.ring .face svg { position: static; width: 58%; height: 58%; fill: #fff; }
+.st-screen { position: fixed; inset: 0; z-index: 42; background: var(--bg); display: flex; flex-direction: column; }
+.st-screen header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.st-screen h2 { margin: 0; font-size: 19px; }
+.st-back { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: inherit; }
+.st-back svg { width: 22px; height: 22px; }
+.st-body { flex: 1; overflow-y: auto; }
+.st-sec { padding: 14px 16px 4px; font-size: 13px; font-weight: 700; color: var(--muted); display: flex; justify-content: space-between; }
+.st-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 16px; text-align: start; }
+.st-row:hover { background: var(--bg-hover); }
+.st-row b { display: block; font-weight: 600; } .st-row small { color: var(--muted); font-size: 12.5px; }
+.st-row.muted { opacity: .55; }
+.st-empty { padding: 48px 24px; text-align: center; color: var(--muted); line-height: 1.7; white-space: pre-line; }
+.st-view { position: fixed; inset: 0; z-index: 50; background: #000; color: #fff; user-select: none; }
+.st-bars { position: absolute; top: 8px; inset-inline: 8px; display: flex; gap: 3px; z-index: 3; direction: rtl; }
+.st-bars i { flex: 1; height: 2.5px; border-radius: 2px; background: rgba(255,255,255,.35); overflow: hidden; }
+.st-bars i b { display: block; height: 100%; width: 0; background: #fff; }
+.st-head { position: absolute; top: 18px; inset-inline: 6px; z-index: 3; display: flex; align-items: center; gap: 8px; }
+.st-head .ring { width: 38px; height: 38px; }
+.st-who b { display: block; font-size: 14.5px; } .st-who small { font-size: 12.5px; opacity: .8; }
+.st-sp { flex: 1; }
+.st-ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 20px; }
+.st-ic svg { width: 20px; height: 20px; fill: #fff; }
+.st-menu { position: absolute; top: 60px; inset-inline-end: 10px; z-index: 4; background: #2b2d34; border-radius: 10px; padding: 4px 0; min-width: 170px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+.st-menu button { display: block; width: 100%; text-align: start; padding: 9px 18px; color: #fff; font-size: 14px; }
+.st-menu button:hover { background: rgba(255,255,255,.08); }
+.st-media { position: absolute; inset: 0; display: grid; place-items: center; }
+.st-media img, .st-media video { max-width: 100%; max-height: 100%; object-fit: contain; }
+.st-cap { position: absolute; inset-inline: 0; bottom: 104px; z-index: 2; padding: 10px max(18px, calc(50vw - 300px)); background: rgba(0,0,0,.55); text-align: center; font-size: 15px; line-height: 1.5; max-height: 34vh; overflow-y: auto; }
+.st-cap:empty { display: none; }
+.st-cap b { display: block; }
+.st-foot { position: absolute; inset-inline: 0; bottom: 58px; z-index: 2; display: flex; justify-content: center; }
+.st-open { color: #fff; font-size: 13px; padding: 6px 16px; border-radius: 999px; background: rgba(255,255,255,.14); }
+/* The item itself is there for its buttons (reactions, link, picture, the menu): only they show. */
+.st-post { position: absolute; inset-inline: 0; bottom: 0; z-index: 2; }
+.st-post .post { visibility: hidden; position: absolute; bottom: 0; inset-inline: 0; display: flex; align-items: flex-end; background: none; border: 0; padding: 0 12px 10px; }
+.st-post .post .avatar { display: none; }
+.st-post .post .actions { visibility: visible; justify-content: center; margin: 0; width: 100%; }
+.st-post .post .actions > * { color: #fff; }
+.saved-empty { white-space: pre-line; padding: 48px 24px; text-align: center; color: var(--muted); line-height: 1.7; }
+#tabs .saved-tab { display: inline-flex; align-items: center; gap: 4px; }
+#tabs .saved-tab svg { width: 15px; height: 15px; }
+/* What's new: the release notes from GitHub. */
+.notes h3 { margin: 18px 0 2px; font-size: 15px; } .notes h3:first-child { margin-top: 0; }
+.notes h3 small { color: var(--muted); font-weight: 400; font-size: 12.5px; margin-inline-start: 6px; }
+.notes ul { margin: 6px 0; padding-inline-start: 20px; } .notes li { margin: 3px 0; line-height: 1.55; }
+.notes p { margin: 6px 0; line-height: 1.55; color: var(--muted); }
+.notes code { font: 12.5px Consolas, monospace; background: var(--bg-raised); padding: 1px 5px; border-radius: 4px; direction: ltr; unicode-bidi: isolate; }
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; align-items: center; }
+.keys kbd { font: 12.5px Consolas, monospace; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-raised); justify-self: start; white-space: nowrap; }
+.about-links { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 10px 0 4px; }
 .row.big > span { font-weight: 700; font-size: 15px; }
 .nt-h { margin-top: 18px !important; }
 #ntBody > h3:first-child { margin-top: 14px; }
@@ -399,6 +532,7 @@ input[type="time"] { padding: 1px 4px; border-radius: 6px; border: 1px solid var
 .about dl { display: grid; grid-template-columns: auto auto; justify-content: center; gap: 4px 14px; font-size: 13.5px; }
 .about dt { color: var(--muted); }
 .about dd { margin: 0; }
+.about dd.dl { cursor: help; text-decoration: underline dotted color-mix(in srgb, var(--muted) 60%, transparent); text-underline-offset: 4px; }
 a.src-name { color: var(--text); font-weight: 700; text-decoration: none; cursor: pointer; }
 a.src-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .cbtn.adv { color: var(--muted); border-style: dashed; }
@@ -598,6 +732,9 @@ button.react:hover { border-color: var(--accent); }
     <h1>הפיד</h1>
     <span class="live"><i class="dot" id="dot"></i><span id="status">מתעדכן</span></span>
     <button class="icon-btn" id="refresh" aria-label="רענון" title="רענון"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg></button>
+    <button class="icon-btn" id="statusBtn" aria-label="סטטוס" title="סטטוס"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 1 10 10h-2a8 8 0 0 0-8-8zm-6.36 2.05 1.42 1.42A8 8 0 0 0 4 12H2a10 10 0 0 1 3.64-7.95zM2 12h2a8 8 0 0 0 8 8v2A10 10 0 0 1 2 12zm18 0h2a10 10 0 0 1-10 10v-2a8 8 0 0 0 8-8zM12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg><i class="st-dot" hidden></i></button>
+    <button class="icon-btn" id="galleryBtn" aria-label="תמונות" title="תמונות"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zm-5.04-6.71-2.75 3.54-1.96-2.36L6.5 17h11l-3.54-4.71z"/></svg></button>
+    <button class="icon-btn" id="savedBtn" aria-label="שמורים" title="שמורים"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15-5-2.18L7 18V5h10v13z"/></svg></button>
     <button class="icon-btn" id="gear" aria-label="הגדרות" title="הגדרות"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.31-.09.63-.09.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></button>
   </div>
   <nav class="tabs" role="tablist" id="tabs"></nav>
@@ -613,6 +750,7 @@ button.react:hover { border-color: var(--accent); }
 </button>
 
 <div id="scroller">
+  <div class="st-tiles" id="stRow" hidden></div>
   <main id="feed" aria-live="polite"></main>
   <div class="state" id="empty" hidden><h2>אין כאן ידיעות כרגע</h2>אין מקור דלוק בלשונית הזאת, או שהמקורות לא ענו.</div>
   <div class="loader" id="loader" hidden><i class="spin"></i></div>
@@ -621,9 +759,9 @@ button.react:hover { border-color: var(--accent); }
 
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="setTitle">
   <div class="panel">
-    <header><h2 id="setTitle">הגדרות</h2><button class="wiz-open" id="setWizard" title="פתיחת אשף ההגדרות מההתחלה"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.5 5.6 10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29a1 1 0 0 0-1.41 0L1.29 18.96a1 1 0 0 0 0 1.41l2.34 2.34a1 1 0 0 0 1.41 0L16.7 11.05a1 1 0 0 0 0-1.41l-2.33-2.35zm-1.03 5.49-2.12-2.12 2.44-2.44 2.12 2.12-2.44 2.44z"/></svg><span>אשף</span></button><button class="x" id="setClose" aria-label="סגירה"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.6 12L4.3 5.7l1.4-1.4 6.3 6.3 6.3-6.3 1.4 1.4-6.3 6.3 6.3 6.3-1.4 1.4-6.3-6.3-6.3 6.3-1.4-1.4 6.3-6.3z"/></svg></button></header>
+    <header><h2 id="setTitle">הגדרות</h2><label class="set-search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3a6.5 6.5 0 0 1 5.2 10.4l5.4 5.4-1.4 1.4-5.4-5.4A6.5 6.5 0 1 1 9.5 3zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z"/></svg><input type="search" id="setSearch" placeholder="חיפוש בהגדרות" aria-label="חיפוש בהגדרות" autocomplete="off"></label><button class="wiz-open" id="setWizard" title="פתיחת אשף ההגדרות מההתחלה"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.5 5.6 10 7 8.6 4.5 10 2 7.5 3.4 5 2l1.4 2.5L5 7zm12 9.8L17 14l1.4 2.5L17 19l2.5-1.4L22 19l-1.4-2.5L22 14zM22 2l-2.5 1.4L17 2l1.4 2.5L17 7l2.5-1.4L22 7l-1.4-2.5zm-7.63 5.29a1 1 0 0 0-1.41 0L1.29 18.96a1 1 0 0 0 0 1.41l2.34 2.34a1 1 0 0 0 1.41 0L16.7 11.05a1 1 0 0 0 0-1.41l-2.33-2.35zm-1.03 5.49-2.12-2.12 2.44-2.44 2.12 2.12-2.44 2.44z"/></svg><span>אשף</span></button><button class="x" id="setClose" aria-label="סגירה"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.6 12L4.3 5.7l1.4-1.4 6.3 6.3 6.3-6.3 1.4 1.4-6.3 6.3 6.3 6.3-1.4 1.4-6.3-6.3-6.3 6.3-1.4-1.4 6.3-6.3z"/></svg></button></header>
     <nav class="set-tabs" id="setTabs" role="tablist">
-      <button data-t="display">תצוגה</button><button data-t="notify">התראות</button><button data-t="feeds">פידים</button><button data-t="sources">מקורות</button><button data-t="accounts">חשבונות</button><button data-t="about">אודות</button><button data-t="advanced" hidden>מתקדם</button>
+      <button data-t="display">תצוגה</button><button data-t="notify">התראות</button><button data-t="feeds">פידים</button><button data-t="sources">מקורות</button><button data-t="about">אודות</button><button data-t="advanced" hidden>מתקדם</button>
     </nav>
     <section data-t="sources"><h3>מקורות</h3><div id="setSources"></div><div class="hint">כל קטגוריה עם מקור דלוק מקבלת לשונית. את סדר הלשוניות קובעים בלשונית "פידים".</div></section>
     <section data-t="feeds"><h3>פידים</h3><div id="setFeeds"></div><div class="hint">גוררים את הפסים כדי לקבוע את סדר הלשוניות. "הכל" והקטגוריות קבועים: אפשר רק לסדר אותם, וקטגוריה מופיעה כלשונית רק כשיש בה מקור דלוק. פיד שיצרת אפשר גם לערוך ולמחוק.</div></section>
@@ -646,11 +784,6 @@ button.react:hover { border-color: var(--accent); }
         <div class="row"><span>איחוד הצפות<small>הרבה הודעות בבת אחת? התראה אחת שמסכמת אותן</small></span><button class="switch" role="switch" id="ntMerge" aria-label="איחוד הצפות"></button></div>
         <div class="nt-shabbat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3c.6 1.5-.5 2.3-.5 3.5S8.5 8 8.5 8 9.5 7 9 5.5C10.5 6.5 11 8 11 9a3 3 0 0 1-6 0c0-2 2-3.2 3-6zm8 0c.6 1.5-.5 2.3-.5 3.5S16.5 8 16.5 8s1-1 .5-2.5C18.5 6.5 19 8 19 9a3 3 0 0 1-6 0c0-2 2-3.2 3-6zM6 13h4v8H6zm8 0h4v8h-4z"/></svg>בשבת ובחג אין התראות, מכניסת השבת עד צאתה לפי זמני ירושלים.</div>
       </div>
-    </section>
-    <section data-t="accounts">
-      <h3>חשבונות Google</h3>
-      <div id="setAccounts"></div>
-      <div class="hint">ערוצים שפתוחים רק למי שמחובר. ההתחברות לכל ערוץ נשמרת רק במחשב הזה, מוצפנת, ומשמשת רק לקריאת הערוץ. התנתקות מוחקת אותה.</div>
     </section>
     <section data-t="display">
       <h3>סדר הידיעות</h3>
@@ -675,6 +808,18 @@ button.react:hover { border-color: var(--accent); }
       </div>
     </section>
     <section data-t="display">
+      <h3>גופן</h3>
+      <div class="faces" id="setFace"></div>
+    </section>
+    <section data-t="display">
+      <h3>תאריך</h3>
+      <div class="seg" id="setDate">
+        <button data-v="heb"><b>עברי</b><small>כ״א בחשון תשפ״ז</small></button>
+        <button data-v="greg"><b>לועזי</b><small>12 בנובמבר 2026</small></button>
+      </div>
+      <div class="hint">מופיע כשמצביעים על השעה של ידיעה.</div>
+    </section>
+    <section data-t="display">
       <h3>צבעים</h3>
       <div class="seg seg3" id="setTheme">
         <button data-v="auto"><b>אוטומטי</b><small>לפי Windows</small></button>
@@ -693,13 +838,17 @@ button.react:hover { border-color: var(--accent); }
       <input type="range" class="bar" id="accShade" min="-3" max="3" step="1" aria-label="בהירות הצבע">
     </section>
     <section data-t="display">
+      <h3>סטטוס</h3>
+      <div class="row"><span>סטטוס<small>הידיעות הפופולריות עם תמונה או סרטון, כמו סטטוס בוואטסאפ: בראש הפיד ובכפתור למעלה</small></span><button class="switch" role="switch" id="setStatus" aria-label="סטטוס"></button></div>
+    </section>
+    <section data-t="display">
       <h3>בפיד</h3>
       <div class="row"><span>פס מבזקים<small>מבזקים רצים בראש הפיד</small></span><button class="switch" role="switch" id="setBreaking" aria-label="פס מבזקים"></button></div>
       <div class="row"><span>תגובות אימוג'י<small>מונים, ואפשרות להגיב באתרים שתומכים</small></span><button class="switch" role="switch" id="setReacts" aria-label="תגובות אימוג'י"></button></div>
       <div class="row"><span>ניגון אוטומטי של סרטונים<small>סרטון מתנגן כשהוא על המסך</small></span><button class="switch" role="switch" id="setAutoplay" aria-label="ניגון אוטומטי של סרטונים"></button></div>
       <div class="row sub" id="setSoundRow"><span>עם קול<small>בלי לחיצה. כבוי: הסרטון מתנגן מושתק</small></span><button class="switch" role="switch" id="setSound" aria-label="קול בניגון האוטומטי"></button></div>
+      <div class="row"><span>מספר חדשות בלשוניות<small>כמה ידיעות חדשות הגיעו לכל לשונית מאז שהיית בה</small></span><button class="switch" role="switch" id="setTabCounts" aria-label="מספר חדשות בלשוניות"></button></div>
       <div class="row"><span>תצוגה צפופה<small>תמונות וסרטונים קטנים, יותר ידיעות במסך</small></span><button class="switch" role="switch" id="setCompact" aria-label="תצוגה צפופה"></button></div>
-      <div class="row"><span>הצגת פרסומות<small>ידיעות שהערוץ סימן כפרסומת. כבוי: לא מוצגות</small></span><button class="switch" role="switch" id="setAds" aria-label="הצגת פרסומות"></button></div>
     </section>
     <section data-t="advanced">
       <h3>זכירת המיקום</h3>
@@ -710,6 +859,21 @@ button.react:hover { border-color: var(--accent); }
       <div class="hint">כשחוזרים ללוח בתוך הזמן הזה, ונוספו פחות ידיעות מהמספר הזה, הפיד נשאר איפה שעצרת. אחרת הוא קופץ לידיעות החדשות.</div>
     </section>
     <section data-t="advanced">
+      <h3>בפיד</h3>
+      <div class="row"><span>איחוד ידיעות כפולות<small>אותה ידיעה מכמה ערוצים מופיעה פעם אחת, בגרסה המלאה יותר</small></span><button class="switch" role="switch" id="setMerge" aria-label="איחוד ידיעות כפולות"></button></div>
+      <div class="row"><span>טקסט בלבד<small>תמונות וסרטונים לא נטענים עד שלוחצים. לחיבור איטי או מסונן</small></span><button class="switch" role="switch" id="setTextOnly" aria-label="טקסט בלבד"></button></div>
+      <div class="row"><span>צליל במבזק<small>צליל קצר כשמגיע מבזק והלוח פתוח. לא בשבת ובחג</small></span><button class="switch" role="switch" id="setBrkSound" aria-label="צליל במבזק"></button></div>
+      <div class="row"><span>הצגת פרסומות<small>ידיעות שהערוץ סימן כפרסומת. כבוי: לא מוצגות</small></span><button class="switch" role="switch" id="setAds" aria-label="הצגת פרסומות"></button></div>
+    </section>
+    <section data-t="advanced">
+      <h3>סטטוס</h3>
+      <div class="acc-shade"><span>כמה פופולרי</span><small id="stLevelTxt"></small></div>
+      <input type="range" class="bar" id="setStLevel" min="0" max="4" step="1" aria-label="כמה פופולרי">
+      <div class="nums" style="margin-top:12px"><label>ידיעות מ-<input type="number" min="1" max="48" id="setStHours"> השעות האחרונות</label></div>
+      <div class="row"><span>כל הידיעות עם תמונה או סרטון<small>לא רק הפופולריות</small></span><button class="switch" role="switch" id="setStAll" aria-label="כל הידיעות עם תמונה או סרטון"></button></div>
+      <div class="hint">פופולרי = יותר תגובות מהרגיל באותו ערוץ ובאותה שעה ביום. הפיד לומד לבד מה רגיל, מהידיעות שהוא רואה.</div>
+    </section>
+    <section data-t="advanced">
       <h3>לחיצה על ציטוט</h3>
       <div class="seg seg3" id="setQuote">
         <button data-v="inline"><b>פתיחה במקום</b><small>מתחת לציטוט</small></button>
@@ -717,6 +881,10 @@ button.react:hover { border-color: var(--accent); }
         <button data-v="load"><b>טעינה עד אליה</b><small>עד 10 עמודים</small></button>
       </div>
       <div class="hint">כשההודעה המצוטטת עוד לא נטענה בפיד. כשהיא כבר בפיד, הפיד גולל אליה. ב"טעינה עד אליה", הודעה ישנה יותר נפתחת במקום.</div>
+    </section>
+    <section data-t="advanced">
+      <h3>מילים מודגשות</h3>
+      <label class="nt-field">מילה מהרשימה תקבל רקע עדין בכל ידיעה<small>מופרדות בפסיק</small><textarea id="setHighlight" rows="2" placeholder="לדוגמה: בית שמש, ישיבה"></textarea></label>
     </section>
     <section data-t="advanced">
       <h3>הסתרת ידיעות</h3>
@@ -753,8 +921,10 @@ button.react:hover { border-color: var(--accent); }
       <dl>
         <dt>ערוצים</dt><dd id="aboutCount"></dd>
         <dt>גרסה</dt><dd id="aboutVer"></dd>
+        <dt id="aboutDlLbl" title="המספר מגיע מהמונה של GitHub, שסופר כמה פעמים הורידו את קובץ ההתקנה. הפיד לא עוקב אחרי התקנות ולא שולח שום מידע." hidden>הורדות</dt><dd id="aboutDl" class="dl" title="המספר מגיע מהמונה של GitHub, שסופר כמה פעמים הורידו את קובץ ההתקנה. הפיד לא עוקב אחרי התקנות ולא שולח שום מידע." hidden></dd>
       </dl>
       <div class="upd" id="aboutUpd"><span id="updText"></span><button class="chip" id="updBtn" hidden></button></div>
+      <div class="about-links"><button class="chip" id="whatsNew">מה חדש בגרסה</button><button class="chip" id="reportBtn">דיווח על בעיה</button><button class="chip" id="keysBtn">קיצורי מקלדת</button></div>
       <div class="row upd-auto" id="updAutoRow"><span>עדכונים אוטומטיים<small>הפיד בודק ב-GitHub פעם בכמה שעות, ומתעדכן לבד</small></span><button class="switch" role="switch" id="updAuto" aria-label="עדכונים אוטומטיים"></button></div>
       <p class="hint">התוכן שייך לערוצים עצמם. הפיד רק מציג אותו, ובכל ידיעה יש דרך להגיע לאתר המקור.</p>
       <p class="hint">ההגדרות, ההתחברויות והתגובות שלך נשמרות רק במחשב הזה. ההתחברויות נשמרות מוצפנות.</p>
@@ -855,6 +1025,27 @@ button.react:hover { border-color: var(--accent); }
   <button class="nav prev" id="lbPrev" aria-label="הקודמת"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.6 5.6L10 4.2 17.8 12 10 19.8l-1.4-1.4L15 12z"/></svg></button>
   <button class="nav next" id="lbNext" aria-label="הבאה"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.4 5.6L14 4.2 6.2 12l7.8 7.8 1.4-1.4L9 12z"/></svg></button>
   <span class="count" id="lbCount"></span>
+  <div class="lb-cap" id="lbCap" hidden></div>
+</div>
+<div class="st-screen" id="stScreen" role="dialog" aria-modal="true" aria-label="סטטוס" hidden>
+  <header><button class="st-back" id="stScreenBack" aria-label="חזרה"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 11h12.2l-5.6-5.6L12 4l8 8-8 8-1.4-1.4 5.6-5.6H4z"/></svg></button><h2>סטטוס</h2></header>
+  <div class="st-body" id="stScreenBody"></div>
+</div>
+<div class="st-view" id="stView" role="dialog" aria-modal="true" aria-label="סטטוס" hidden>
+  <div class="st-bars" id="stBars"></div>
+  <div class="st-head">
+    <button class="st-back" id="stClose" aria-label="סגירה"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 11h12.2l-5.6-5.6L12 4l8 8-8 8-1.4-1.4 5.6-5.6H4z"/></svg></button>
+    <span class="st-av" id="stAv"></span>
+    <span class="st-who"><b id="stName"></b><small id="stSub"></small></span>
+    <span class="st-sp"></span>
+    <button class="st-ic" id="stSound" aria-label="קול"></button>
+    <button class="st-ic" id="stDots" aria-label="עוד">⋮</button>
+  </div>
+  <div class="st-menu" id="stMenu" hidden></div>
+  <div class="st-media" id="stMedia"></div>
+  <div class="st-cap" id="stCap"></div>
+  <div class="st-foot"><button class="st-open" id="stOpenFeed">פתיחה בפיד</button></div>
+  <div class="st-post" id="stPost"></div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -974,7 +1165,7 @@ const byId = (id) => SOURCES.find((s) => s.id === id);
 // Same-origin sources go straight to the network; the rest through the provider (the page cannot read other sites).
 async function get(src, url, opt = {}) {
   let target = url;
-  if (src.direct) target = url.replace(src.base, "");
+  if (src.direct && location.host === new URL(src.base).host) target = url.replace(src.base, "");   // same site only (not the dev copy's address)
   else {
     const q = new URLSearchParams({ u: url });
     if (opt.method) q.set("m", opt.method);
@@ -1216,7 +1407,8 @@ function loginRow(s, after) {
   return row;
 }
 function buildAccounts() {
-  const box = $("#setAccounts"); box.replaceChildren();
+  const box = $("#setAccounts"); if (!box) return;   // the accounts tab is gone: sign-in is in each channel's row
+  box.replaceChildren();
   const group = (title, list) => { if (!list.length) return; box.append(el("div", "acct-group", title)); for (const s of list) box.append(loginRow(s, buildAccounts)); };
   group("ערוצים סגורים: התחברות כדי לקרוא", SOURCES.filter((x) => x.login));
   // Authenti is one site for all its channels: one sign-in covers them.
@@ -1293,6 +1485,20 @@ const norm = (it) => {
 // ---------- time ----------
 const fmtDate = new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "short" });
 const fmtFull = new Intl.DateTimeFormat("he-IL", { dateStyle: "full", timeStyle: "short" });
+// The full date, Hebrew unless the user picked the civil one (Display).
+// The browser writes Hebrew dates with digits (2 בכסלו 5787); the day and the year become letters (ב׳ בכסלו תשפ״ז).
+const fmtHeb = new Intl.DateTimeFormat("he-IL-u-ca-hebrew", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const fmtHour = new Intl.DateTimeFormat("he-IL", { timeStyle: "short" });
+function gematria(n) {
+  n %= 1000;
+  let s = "";
+  for (const [v, l] of [[400, "ת"], [300, "ש"], [200, "ר"], [100, "ק"]]) while (n >= v) { s += l; n -= v; }
+  if (n === 15) s += "טו"; else if (n === 16) s += "טז";
+  else { s += ["", "י", "כ", "ל", "מ", "נ", "ס", "ע", "פ", "צ"][Math.floor(n / 10)]; s += ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט"][n % 10]; }
+  return s.length > 1 ? s.slice(0, -1) + "״" + s.slice(-1) : s + "׳";
+}
+const hebDate = (t) => fmtHeb.formatToParts(t).map((p) => (p.type === "day" || p.type === "year" ? gematria(+p.value) : p.value)).join("");
+const fullDate = (t) => (S.date === "greg" ? fmtFull.format(t) : `${hebDate(t)}, ${fmtHour.format(t)}`);
 function ago(t) {
   const s = Math.max(0, (Date.now() - t) / 1000);
   if (s < 45) return "עכשיו";
@@ -1314,12 +1520,12 @@ function fillText(node, text) {
   node.append(text.slice(i));
 }
 
-function mediaBox(item) {
+function mediaBox(item, of) {
   const box = el("div", "media");
   if (item.size) box.style.aspectRatio = `${item.size[0]} / ${item.size[1]}`;
   if (item.kind === "image") {
     const img = el("img"); img.loading = "lazy"; img.decoding = "async"; img.alt = ""; img.src = item.url;
-    img.addEventListener("click", () => openLightbox(item.url));
+    img.addEventListener("click", () => openLightbox(item.url, 0, of));
     img.addEventListener("error", () => box.remove());
     box.append(img);
   } else {
@@ -1346,11 +1552,11 @@ function mediaBox(item) {
 }
 
 // 2-4 images share one rounded frame; a 5th+ image is reachable from the lightbox only.
-function imageGrid(imgs) {
+function imageGrid(imgs, of) {
   const box = el("div", `media grid n${Math.min(imgs.length, 4)}`);
   imgs.slice(0, 4).forEach((it, i) => {
     const img = el("img"); img.loading = "lazy"; img.decoding = "async"; img.alt = ""; img.src = it.url;
-    img.addEventListener("click", () => openLightbox(imgs.map((x) => x.url), i));
+    img.addEventListener("click", () => openLightbox(imgs.map((x) => x.url), i, of));
     img.addEventListener("error", () => { img.style.visibility = "hidden"; });
     if (i === 3 && imgs.length > 4) { const c = el("div", "cell more-n", `+${imgs.length - 4}`); c.prepend(img); box.append(c); }
     else box.append(img);
@@ -1402,9 +1608,12 @@ function fillReactions(actions, it) {
 
 const keyOf = (it) => `${it.src}:${it.id}`;
 // ---------- muting a channel for a while ----------
-function muteMenu(actions, src) {
+function muteMenu(actions, src, it) {
   document.querySelectorAll(".mute-menu").forEach((m) => m.remove());
   const m = el("div", "mute-menu");
+  const save = el("button", null, isSaved(it) ? "🔖 הסרה מהשמורים" : "🔖 שמירה לאחר כך");
+  save.addEventListener("click", () => { m.remove(); toast(toggleSaved(it) ? "נשמר. כל השמורים בכפתור 🔖 למעלה" : "הוסר מהשמורים"); });
+  m.append(save);
   m.append(el("b", null, "השתקת " + src.name));
   for (const [label, ms] of [["לשעה", 36e5], ["עד מחר", 864e5], ["לשבוע", 7 * 864e5], ["עד שאבטל", 3650 * 864e5]]) {
     const b = el("button", null, "🔕 " + label);
@@ -1440,7 +1649,7 @@ document.addEventListener("click", (e) => {
 });
 function render(it, fresh) {
   const src = byId(it.src), n = norm(it), t = it.t || Date.now();
-  const post = el("article", "post" + (it.breaking ? " breaking" : "") + (fresh ? " fresh" : ""));
+  const post = el("article", "post" + (it.breaking ? " breaking" : "") + (fresh ? " fresh" : "") + (READ.has(keyOf(it)) ? " read" : ""));
   post.dataset.key = keyOf(it);
   const av = avatar(src, "avatar");
   const col = el("div", "col");
@@ -1448,7 +1657,7 @@ function render(it, fresh) {
   const meta = el("div", "meta");
   const name = el("a", "src-name", src.name); name.href = linkOf(it); name.title = "פתיחת הידיעה בדפדפן";
   meta.append(name, el("span", null, "·"));
-  const time = el("time", null, ago(t)); time.dateTime = new Date(t).toISOString(); time.title = fmtFull.format(t); time.dataset.t = t;
+  const time = el("time", null, ago(t)); time.dateTime = new Date(t).toISOString(); time.title = fullDate(t); time.dataset.t = t;
   meta.append(time);
   if (it.breaking) meta.append(el("span", "tag", "מבזק"));
   col.append(meta);
@@ -1461,6 +1670,11 @@ function render(it, fresh) {
     col.append(box);
   }
   if (n.title) col.append(el("div", "title", n.title));
+  if (src.kind === "article" && it.url) {
+    const rd = el("button", "chip read-here", "קריאת הכתבה");
+    rd.addEventListener("click", () => readArticle(it));
+    queueMicrotask(() => { const a = col.querySelector(".actions"); if (a) a.before(rd); else col.append(rd); });
+  }
   if (n.body) {
     const b = el("div", "body"); fillText(b, n.body); col.append(b);
     if (n.body.length > 420 || n.body.split("\n").length > 7) {
@@ -1471,11 +1685,21 @@ function render(it, fresh) {
     }
   }
   const imgs = n.media.filter((x) => x.kind === "image");
-  if (imgs.length > 1) col.append(imageGrid(imgs));
-  for (const m of n.media) {
-    if (m.kind === "audio") col.append(audioBox(m.url));
-    else if (m.kind === "video" || imgs.length === 1) col.append(mediaBox(m));
-  }
+  const addMedia = (at) => {
+    const out = [];
+    if (imgs.length > 1) out.push(imageGrid(imgs, it));
+    for (const m of n.media) {
+      if (m.kind === "audio") out.push(audioBox(m.url));
+      else if (m.kind === "video" || imgs.length === 1) out.push(mediaBox(m, it));
+    }
+    at ? at.replaceWith(...out) : col.append(...out);
+  };
+  if (S.textOnly && n.media.length) {
+    const vids = n.media.filter((x) => x.kind === "video").length;
+    const label = vids ? (imgs.length ? "הצגת התמונות והסרטון" : "הצגת הסרטון") : imgs.length > 1 ? `הצגת ${imgs.length} תמונות` : "הצגת התמונה";
+    const b = el("button", "chip media-btn", label); b.addEventListener("click", () => addMedia(b)); col.append(b);
+  } else addMedia();
+  if (S.highlight) queueMicrotask(() => col.querySelectorAll(".title, .body").forEach(markWords));
 
   const actions = el("div", "actions");
   fillReactions(actions, it);
@@ -1487,7 +1711,7 @@ function render(it, fresh) {
     actions.append(file);
   }
   const mute = el("button", "share"); mute.innerHTML = svg(ICON.more); mute.title = "עוד"; mute.setAttribute("aria-label", "עוד פעולות");
-  mute.addEventListener("click", (e) => { e.stopPropagation(); muteMenu(actions, src); });
+  mute.addEventListener("click", (e) => { e.stopPropagation(); muteMenu(actions, src, it); });
   actions.append(mute);
   const link = el("button", "share"); link.innerHTML = svg(ICON.link); link.title = "העתקת הקישור לידיעה"; link.setAttribute("aria-label", link.title);
   link.addEventListener("click", () => navigator.clipboard.writeText(linkOf(it)).then(() => toast("הקישור הועתק"), () => toast("ההעתקה לא הצליחה")));
@@ -1514,6 +1738,9 @@ function visible(it) {
   return !hw.some((w) => t.includes(w));
 }
 let tab = "all", stream = null, seen = new Set(), pending = [], loading = false;
+const READ = new Set((() => { try { return JSON.parse(localStorage.getItem("hz-read") || "[]"); } catch { return []; } })());   // see markRead
+let tabCounts = {};   // see countTabs
+let inGallery = false;   // the pictures grid is open (see showPics)
 
 function newStream(srcs) {
   return { lanes: srcs.map((src) => ({ src, buf: [], cursor: 0, done: false })), gen: Symbol() };
@@ -1548,7 +1775,7 @@ async function next(st, n) {
 }
 
 async function loadMore() {
-  if (loading || !stream) return;
+  if (loading || !stream || inSaved || inGallery) return;
   const st = stream; loading = true; $("#loader").hidden = false;
   try {
     const items = await next(st, PAGE);
@@ -1578,6 +1805,27 @@ function saveCache(t) {
 }
 const readCache = (t) => { try { return JSON.parse(localStorage.getItem(cacheKey(t)) || "[]"); } catch { return []; } };
 
+// ---------- saved items: on this computer only ----------
+// The "שמורים" tab shows only while it is open (like the advanced settings), from the button at the top.
+const SAVED_KEY = "hz-saved";
+let SAVED = (() => { try { return JSON.parse(localStorage.getItem(SAVED_KEY) || "[]"); } catch { return []; } })();
+let inSaved = false;
+const isSaved = (it) => SAVED.some((x) => keyOf(x) === keyOf(it));
+function toggleSaved(it) {
+  if (isSaved(it)) SAVED = SAVED.filter((x) => keyOf(x) !== keyOf(it));
+  else { const { norm, ...plain } = it; SAVED = [{ ...plain, savedAt: Date.now() }, ...SAVED].slice(0, 300); }
+  try { localStorage.setItem(SAVED_KEY, JSON.stringify(SAVED)); } catch { toast("אין מקום לשמור עוד"); }
+  if (inSaved) showSaved();
+  return isSaved(it);
+}
+function showSaved() {
+  const list = SAVED.filter((it) => byId(it.src));
+  $("#feed").replaceChildren(...(list.length ? list.map((it) => render(it))
+    : [el("div", "saved-empty", "עוד לא שמרת ידיעות.\nשומרים מהתפריט ⋯ של ידיעה, או במקש S כשהידיעה מסומנת.")]));
+  $("#empty").hidden = true;
+}
+$("#savedBtn").addEventListener("click", () => { if (!inSaved) openTab("saved"); });
+
 // ---------- tabs ----------
 function buildTabs() {
   const cats = orderedCats().filter(([c]) => enabled().some((s) => s.cat === c));
@@ -1588,11 +1836,22 @@ function buildTabs() {
   // With no tab bar, "all" and the one category are the same feed.
   if (!tabs.some(([c]) => c === S.tab)) S.tab = tabs[0]?.[0] || (S.allOff && cats[0]?.[0]) || "all";
   $("#tabs").replaceChildren(...tabs.map(([c, name]) => {
-    const b = el("button", null, name); b.setAttribute("role", "tab"); b.dataset.f = c; b.setAttribute("aria-selected", c === S.tab);
-    b.addEventListener("click", () => { S.tab = c; saveSettings(); buildTabs(); openTab(c); });
+    const b = el("button", null, name); b.setAttribute("role", "tab"); b.dataset.f = c; b.setAttribute("aria-selected", !inSaved && !inGallery && c === S.tab);
+    b.addEventListener("click", () => { S.tab = c; saveSettings(); inSaved = false; buildTabs(); openTab(c); });
     return b;
   }));
-  $("#tabs").hidden = !tabs.length;
+  if (inGallery) {
+    const g = el("button", "saved-tab"); g.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zm-5.04-6.71-2.75 3.54-1.96-2.36L6.5 17h11l-3.54-4.71z"/></svg>`; g.append("תמונות");
+    g.setAttribute("role", "tab"); g.setAttribute("aria-selected", "true"); g.dataset.f = "gallery";
+    $("#tabs").append(g);
+  }
+  if (inSaved) {
+    const b = el("button", "saved-tab"); b.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15-5-2.18L7 18V5h10v13z"/></svg>`; b.append("שמורים");
+    b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(!inGallery)); b.dataset.f = "saved";
+    b.addEventListener("click", () => { if (inGallery) openTab("saved"); });
+    $("#tabs").append(b);
+  }
+  $("#tabs").hidden = !tabs.length && !inSaved && !inGallery;
   const one = enabled().length === 1 ? enabled()[0] : null;
   $(".brand h1").textContent = one ? one.name : "הפיד";
   $("#logo").src = one && one.logo ? one.logo : LOGO;
@@ -1602,6 +1861,18 @@ function buildTabs() {
 let openedAt = 0;
 function openTab(t) {
   openedAt = Date.now();
+  const was = inSaved || inGallery;
+  inGallery = false;
+  inSaved = t === "saved";
+  if (inSaved) {
+    tab = t; stream = newStream([]); seen = new Set(); pending = []; loading = false;
+    $("#pill").classList.remove("show");
+    buildTabs(); showSaved(); scroller.scrollTop = 0;
+    return;
+  }
+  if (was) buildTabs();
+  seeTab(t); delete tabCounts[t];
+  if (typeof stRefresh === "function") stRefresh();
   tab = t; stream = newStream(tabSources(t)); seen = new Set(); pending = []; loading = false;
   $("#pill").classList.remove("show"); $("#empty").hidden = true;
   const feed = $("#feed"); feed.replaceChildren();
@@ -1699,6 +1970,7 @@ winAccentLoad();
 // ---------- refresh ----------
 async function poll(force = false) {
   checkVersion();
+  if (inGallery) return;   // the grid is not a feed: nothing new goes into it
   loadBreaking();
   const srcs = tabSources(tab), st = stream;
   const results = await Promise.all(srcs.map((s) => ADAPTERS[s.kind].page(s, 0).then((p) => p.items, () => null)));
@@ -1719,6 +1991,8 @@ async function poll(force = false) {
   });
   rememberBreaking(results.flat().filter(Boolean));
   if (!fresh.length) return;
+  if (fresh.some((it) => it.breaking)) chime();
+  if (!inSaved) seeTab(tab);
   pending = [...fresh, ...pending].sort((a, b) => b.t - a.t);
   // New items never shift the page under the reader: they go in only at the newest edge and after a quiet moment.
   if (force || (fromEdge() < 80 && !document.hidden && idle())) { flushPending(); trim(); } else showPill();
@@ -1836,11 +2110,13 @@ async function oneOf(it) {
   post.removeAttribute("data-key");   // not counted, trimmed or found as a feed item
   return post;
 }
-function quoteSheet(post) {
+const quoteSheet = (post) => floatSheet("ההודעה המצוטטת", post);
+function floatSheet(title, body) {
+  const post = body;
   const sh = el("div", "sheet qsheet show"), panel = el("div", "panel"), head = el("header"), x = el("button", "x");
-  sh.setAttribute("role", "dialog"); sh.setAttribute("aria-modal", "true"); sh.setAttribute("aria-label", "ההודעה המצוטטת");
+  sh.setAttribute("role", "dialog"); sh.setAttribute("aria-modal", "true"); sh.setAttribute("aria-label", title);
   x.setAttribute("aria-label", "סגירה"); x.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.6 12L4.3 5.7l1.4-1.4 6.3 6.3 6.3-6.3 1.4 1.4-6.3 6.3 6.3 6.3-1.4 1.4-6.3-6.3-6.3 6.3-1.4-1.4 6.3-6.3z"/></svg>`;
-  head.append(el("h2", null, "ההודעה המצוטטת"), x); panel.append(head, post); sh.append(panel);
+  head.append(el("h2", null, title), x); panel.append(head, post); sh.append(panel);
   const close = () => { sh.remove(); document.removeEventListener("keydown", esc, true); };
   const esc = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
   x.addEventListener("click", close);
@@ -1901,6 +2177,19 @@ function sourceRow(s, toggleOnly = false) {
     });
     row.append(avatar(s), txt, g);
     return row;
+  }
+  // Sign-in, in the row (there is no accounts tab): a closed channel that is signed in can sign out; an open
+  // channel where reacting needs Google says so, with a link to sign in or out.
+  if (!toggleOnly && (s.login || s.kind === "chat" || s.kind === "authenti")) {
+    const on = signedIn(s), host = hostOf(s);
+    const line = el("small", "acct-line" + (on ? " on" : ""), s.login ? "מחובר · " : on ? "מחובר לתגובות · " : "");
+    const a = el("button", "linkish", on ? "התנתקות" : "התחברות לתגובות");
+    a.addEventListener("click", async () => {
+      if (on) await authStatus(`?site=${encodeURIComponent(host)}&do=logout`);
+      else { a.disabled = true; a.textContent = "התחבר בחלון, ואז סגור אותו"; await signIn(s); }
+      dirty = true; row.replaceWith(sourceRow(s, toggleOnly));
+    });
+    line.append(a); txt.append(line);
   }
   const sw = el("button", "switch"); sw.setAttribute("role", "switch"); sw.setAttribute("aria-label", s.name);
   sw.setAttribute("aria-checked", S.on.includes(s.id));
@@ -2111,7 +2400,37 @@ function feedName(f, srcs) {
   box.replaceChildren(form); name.focus(); name.select();
 }
 
-function setTab(t) {
+// The sections go into one box under the tabs: it lays them out in columns (see #setBody).
+(() => {
+  const body = el("div"); body.id = "setBody";
+  const secs = document.querySelectorAll("#sheet .panel > section[data-t]");
+  secs[0].before(body); body.append(...secs, Object.assign(el("div", null, "לא נמצאה הגדרה כזאת."), { id: "setNoHit", hidden: true }));
+})();
+const TAB_NAMES = { display: "תצוגה", notify: "התראות", feeds: "פידים", sources: "מקורות", about: "אודות", advanced: "מתקדם" };
+// Search: the sections of every tab (advanced too) that have the words; inside one whose title does not match,
+// only the matching rows. An empty box brings back the tab that was open.
+function searchSettings() {
+  const q = $("#setSearch").value.trim().toLowerCase(), body = $("#setBody");
+  body.querySelectorAll(".row.s-miss").forEach((r) => r.classList.remove("s-miss"));
+  if (!q) { body.classList.remove("searching"); return setTab(S.setTab || "display", true); }
+  body.classList.add("searching"); body.dataset.tab = "";
+  document.querySelectorAll("#setTabs button").forEach((b) => b.setAttribute("aria-selected", "false"));
+  const has = (x) => x.textContent.toLowerCase().includes(q);
+  let any = false;
+  for (const s of body.querySelectorAll("section[data-t]")) {
+    s.hidden = !has(s);
+    if (s.hidden) continue;
+    any = true; s.dataset.where = TAB_NAMES[s.dataset.t] || "";
+    if (!has(s.querySelector("h3") || el("i")) && [...s.querySelectorAll(".row")].some(has)) s.querySelectorAll(".row").forEach((r) => r.classList.toggle("s-miss", !has(r)));
+  }
+  $("#setNoHit").hidden = any;
+}
+$("#setSearch").addEventListener("input", searchSettings);
+$("#setSearch").addEventListener("keydown", (e) => { if (e.key === "Escape" && e.target.value) { e.stopPropagation(); e.target.value = ""; searchSettings(); } });
+function setTab(t, keepSearch) {
+  if (!keepSearch && $("#setSearch").value) { $("#setSearch").value = ""; $("#setBody").classList.remove("searching"); $("#setBody").querySelectorAll(".row.s-miss").forEach((r) => r.classList.remove("s-miss")); }
+  $("#setNoHit").hidden = true;
+  $("#setBody").dataset.tab = t;
   S.setTab = t; saveSettings();
   document.querySelectorAll("#setTabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.t === t));
   // "Advanced" shows in the tab bar only while open; the way in is the version line in About.
@@ -2136,6 +2455,17 @@ function buildSettings() {
   document.querySelectorAll("#setFont button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.font || "m")));
   document.querySelectorAll("#setTheme button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.theme || "auto")));
   document.querySelectorAll("#setQuote button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.quoteMode || "inline")));
+  $("#setBrkSound").setAttribute("aria-checked", !!S.brkSound);
+  $("#setMerge").setAttribute("aria-checked", !S.noMerge);
+  $("#setStatus").setAttribute("aria-checked", S.status !== false);
+  $("#setStAll").setAttribute("aria-checked", !!S.stAll);
+  $("#setStLevel").value = S.stLevel ?? 1; $("#stLevelTxt").textContent = ST_LEVELS[S.stLevel ?? 1][1];
+  $("#setStHours").value = S.stHours || 12;
+  $("#setTextOnly").setAttribute("aria-checked", !!S.textOnly);
+  $("#setHighlight").value = S.highlight || "";
+  document.querySelectorAll("#setDate button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.date || "heb")));
+  $("#setTabCounts").setAttribute("aria-checked", !!S.tabCounts);
+  facesUI();
   accentUI();
   $("#setCompact").setAttribute("aria-checked", !!S.compact);
   $("#setAds").setAttribute("aria-checked", !!S.showAds);
@@ -2152,7 +2482,92 @@ function buildAbout() {
   $("#aboutLogo").src = LOGO;
   $("#aboutCount").textContent = `${SOURCES.length} ערוצים, מהם ${enabled().length} דלוקים אצלך`;
   showUpdate();
+  showDownloads();
 }
+// GitHub's own counter of installer downloads, all releases together (kept for an hour). No install is counted
+// or tracked: the number is GitHub's, and the page only reads it.
+// The releases on GitHub (kept an hour): their notes and their installer downloads.
+const relOf = (x) => ({ tag: (x.tag_name || "").replace(/^v/, ""), at: Date.parse(x.published_at) || 0, body: x.body || "",
+  setup: (x.assets || []).filter((a) => a.name === "HaFeed-Setup.cmd").reduce((s, a) => s + (a.download_count || 0), 0) });
+// ponytail: the downloads count reads the first 100 releases; past that, page through like showWhatsNew.
+async function releases() {
+  try { const c = JSON.parse(localStorage.getItem("hz-releases") || "null"); if (c && Date.now() - c.at < 36e5) return c.list; } catch {}
+  const rel = await fetch("https://api.github.com/repos/The-Young-boy/HaFeed/releases?per_page=100").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!Array.isArray(rel)) return null;
+  const list = rel.map(relOf);
+  try { localStorage.setItem("hz-releases", JSON.stringify({ list, at: Date.now() })); } catch {}
+  return list;
+}
+async function showDownloads() {
+  const list = await releases();
+  if (!list) return;
+  const n = list.reduce((s, r) => s + r.setup, 0);
+  $("#aboutDl").textContent = `הורד כבר ${n.toLocaleString("he-IL")} פעמים`;
+  $("#aboutDl").hidden = $("#aboutDlLbl").hidden = false;
+}
+// What's new: the notes of the installed version and the ones before it, drawn from their Markdown
+// (lists, bold, code); built as elements, never as HTML from the network.
+function mdInline(parent, text) {
+  for (const part of text.split(/(\*\*[^*]+\*\*|`[^`]+`)/)) {
+    if (/^\*\*.+\*\*$/.test(part)) parent.append(el("b", null, part.slice(2, -2)));
+    else if (/^`.+`$/.test(part)) parent.append(el("code", null, part.slice(1, -1)));
+    else if (part) parent.append(part);
+  }
+}
+// Every release, newest first, down to the first one: drawn a few at a time while scrolling, and pages
+// of 100 asked from GitHub as the list reaches them.
+async function showWhatsNew() {
+  const box = el("div", "notes"), end = el("p", null, "טוען...");
+  box.append(end);
+  floatSheet("מה חדש", box);
+  const first = await releases();
+  if (!first) { end.textContent = "אין חיבור ל-GitHub כרגע. נסו שוב מאוחר יותר."; return; }
+  let list = [...first], page = 1, more = first.length === 100, shown = 0, busy = false;
+  const same = /^(\*\*(מה השתנה|מה חדש|התקנה|דרישות):?\*\*|מי שמותקנת)/;   // repeats in every release
+  const draw = (r) => {
+    const h = el("h3", null, "גרסה " + r.tag); h.append(el("small", null, "· " + new Date(r.at).toLocaleDateString("he-IL")));
+    end.before(h);
+    let ul = null;
+    for (const line of r.body.split(/\r?\n/).filter((l) => !same.test(l.trim()))) {
+      if (/^\s*-\s+/.test(line)) { if (!ul) end.before((ul = el("ul"))); const li = el("li"); mdInline(li, line.replace(/^\s*-\s+/, "")); ul.append(li); }
+      else if (line.trim()) { ul = null; const p = el("p"); mdInline(p, line.trim()); end.before(p); }
+      else ul = null;
+    }
+  };
+  const next = async () => {
+    if (busy) return;
+    busy = true;
+    if (shown >= list.length && more) {
+      const rel = await fetch(`https://api.github.com/repos/The-Young-boy/HaFeed/releases?per_page=100&page=${++page}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (Array.isArray(rel)) { list.push(...rel.map(relOf)); more = rel.length === 100; } else more = false;
+    }
+    for (const r of list.slice(shown, shown + 6)) draw(r);
+    shown = Math.min(shown + 6, list.length);
+    end.textContent = shown < list.length || more ? "טוען..." : "זו הייתה הגרסה הראשונה.";
+    busy = false;
+    const panel = box.closest(".panel");
+    if ((shown < list.length || more) && panel.scrollHeight <= panel.clientHeight + 300) next();   // not enough yet to scroll
+  };
+  const panel = box.closest(".panel");
+  panel.addEventListener("scroll", () => { if (panel.scrollTop + panel.clientHeight > panel.scrollHeight - 300) next(); });
+  next();
+}
+// A problem report: a new GitHub issue, filled in with the version, Windows and the provider's last log lines.
+// It opens in the browser; nothing is sent until the user submits it there.
+async function reportProblem() {
+  const [st, sys, ua] = await Promise.all([upd(), fetch("/winfeed/report").then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+    navigator.userAgentData?.getHighEntropyValues(["platformVersion"]).catch(() => null)]);
+  // The provider knows the exact build; the browser only whether it is Windows 11 (platform 13 and up).
+  const win = sys.build || (ua?.platformVersion ? `${parseInt(ua.platformVersion) >= 13 ? "Windows 11" : "Windows 10"} (${ua.platformVersion})` : "לא ידוע");
+  const names = enabled().map((s) => s.name).join(", ");
+  const log = [sys.log ? "הספק:\n" + sys.log : "הספק: לא ענה", PLOG.length ? "הדף:\n" + PLOG.join("\n") : ""].filter(Boolean).join("\n\n").slice(-3800);
+  const body = `**מה קרה?**\n\n\n**מה ציפית שיקרה?**\n\n\n---\nגרסה: ${st?.current || "?"}${st?.dev ? " (פיתוח)" : ""}\nWindows: ${win}\nערוצים דלוקים (${enabled().length}): ${names}\n\n<details><summary>יומן</summary>\n\n\`\`\`\n${log}\n\`\`\`\n</details>\n`;
+  openUrl("https://github.com/The-Young-boy/HaFeed/issues/new?title=" + encodeURIComponent("בעיה: ") + "&body=" + encodeURIComponent(body));
+  toast("נפתח דף בעיה ב-GitHub. שום דבר לא נשלח עד שתלחצו שם על שליחה.");
+}
+$("#whatsNew").addEventListener("click", showWhatsNew);
+$("#reportBtn").addEventListener("click", reportProblem);
+$("#keysBtn").addEventListener("click", showKeys);
 // ---------- updates (the provider checks GitHub; see update.rs) ----------
 const upd = (q = "") => fetch("/winfeed/update" + q).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 let updTimer = 0;
@@ -2227,6 +2642,19 @@ document.querySelectorAll("#setLayout button").forEach((b) => b.addEventListener
 document.querySelectorAll("#setFont button").forEach((b) => b.addEventListener("click", () => { S.font = b.dataset.v; saveSettings(); buildSettings(); applyLook(); }));
 document.querySelectorAll("#setTheme button").forEach((b) => b.addEventListener("click", () => { S.theme = b.dataset.v; saveSettings(); buildSettings(); applyLook(); }));
 document.querySelectorAll("#setQuote button").forEach((b) => b.addEventListener("click", () => { S.quoteMode = b.dataset.v; saveSettings(); buildSettings(); }));
+// These change how items are drawn: the tab is drawn again.
+const redraw = () => { CUT_VER++; if (!inSaved && !inGallery) openTab(S.tab); };
+$("#setStatus").addEventListener("click", () => { S.status = S.status === false; saveSettings(); buildSettings(); stUpdate(); });
+$("#setStAll").addEventListener("click", () => { S.stAll = !S.stAll; saveSettings(); buildSettings(); stUpdate(true); });
+$("#setStLevel").addEventListener("input", (e) => { S.stLevel = +e.target.value; saveSettings(); $("#stLevelTxt").textContent = ST_LEVELS[S.stLevel][1]; });
+$("#setStLevel").addEventListener("change", () => stUpdate(true));
+$("#setStHours").addEventListener("change", (e) => { S.stHours = Math.min(48, Math.max(1, +e.target.value || 12)); saveSettings(); stUpdate(true); });
+$("#setMerge").addEventListener("click", () => { S.noMerge = !S.noMerge; saveSettings(); buildSettings(); redraw(); });
+$("#setTextOnly").addEventListener("click", () => { S.textOnly = !S.textOnly; saveSettings(); buildSettings(); redraw(); });
+$("#setHighlight").addEventListener("change", (e) => { S.highlight = e.target.value; saveSettings(); redraw(); });
+document.querySelectorAll("#setDate button").forEach((b) => b.addEventListener("click", () => { S.date = b.dataset.v; saveSettings(); buildSettings(); document.querySelectorAll("#feed time[data-t]").forEach((x) => (x.title = fullDate(+x.dataset.t))); }));
+$("#setTabCounts").addEventListener("click", () => { S.tabCounts = !S.tabCounts; saveSettings(); buildSettings(); countTabs(); });
+$("#setBrkSound").addEventListener("click", () => { S.brkSound = !S.brkSound; saveSettings(); buildSettings(); if (S.brkSound) chime(); });
 // The colour squares: Windows, ten colours, and your own (a hue bar and a colour code; it applies as you move).
 function accentUI() {
   const box = $("#setAccent"), own = isHex(S.accent) && !ACCENTS.some(([, c]) => c === S.accent);
@@ -2321,7 +2749,46 @@ document.querySelectorAll("#setOrder button").forEach((b) => b.addEventListener(
 $("#setKeepSec").addEventListener("change", (e) => { S.keepSec = Math.max(0, +e.target.value || 0); saveSettings(); });
 $("#setKeepItems").addEventListener("change", (e) => { S.keepItems = Math.max(0, +e.target.value || 0); saveSettings(); });
 $("#gear").addEventListener("click", () => { buildSettings(); $("#sheet").classList.add("show"); $("#setClose").focus(); });
+// Each tab can go back to its defaults: a second click confirms, and for a few seconds it can be undone.
+const RESET = {
+  display: ["status", "layout", "order", "font", "face", "date", "theme", "accent", "accentShade", "breaking", "reactions", "autoplay", "autoSound", "compact", "tabCounts"],
+  feeds: ["tabOrder", "catOrder", "allEx", "allOff"],
+  sources: ["on"],
+  advanced: ["keepSec", "keepItems", "hideWords", "highlight", "mutes", "pollSec", "cuts", "quoteMode", "showAds", "brkSound", "noMerge", "textOnly", "stLevel", "stHours", "stAll"],
+};
+function resetTab(t) {
+  const before = JSON.stringify(S);
+  for (const k of RESET[t] || []) { if (k in DEFAULTS) S[k] = structuredClone(DEFAULTS[k]); else delete S[k]; }
+  if (t === "sources") S.on = SOURCES.filter((s) => s.on).map((s) => s.id);
+  if (t === "advanced") { S.cuts = [...KNOWN_CUTS]; const n = N(); for (const k of ["only", "never", "mergeAt", "ads"]) n[k] = NOTIFY_DEFAULTS[k]; }
+  if (t === "notify") { const n = N(); for (const k of ["via", "ch", "night", "nightFrom", "nightTo", "notOpen", "merge"]) n[k] = NOTIFY_DEFAULTS[k]; }
+  afterReset();
+  undoBar(`ההגדרות של "${TAB_NAMES[t]}" חזרו לברירת המחדל`, () => { S = JSON.parse(before); afterReset(); });
+}
+function afterReset() {
+  saveSettings(); CUT_VER++; applyLook(); buildSettings(); setTab(S.setTab || "display");
+  dirty = true; buildTabs(); openTab(S.tab);
+}
+function undoBar(msg, undo) {
+  document.querySelector(".undo")?.remove();
+  const bar = el("div", "undo"), b = el("button", null, "ביטול");
+  bar.setAttribute("role", "status"); bar.append(el("span", null, msg), b);
+  b.addEventListener("click", () => { bar.remove(); undo(); });
+  document.body.append(bar);
+  setTimeout(() => bar.remove(), 6000);
+}
+for (const t of Object.keys(RESET).concat("notify")) {
+  const sec = el("section", "reset-sec"); sec.dataset.t = t;
+  const b = el("button", "chip", "החזרת ברירת המחדל בלשונית הזאת");
+  b.addEventListener("click", () => {
+    if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "לחצו שוב לאישור"; setTimeout(() => { delete b.dataset.sure; b.textContent = "החזרת ברירת המחדל בלשונית הזאת"; }, 3000); return; }
+    delete b.dataset.sure; b.textContent = "החזרת ברירת המחדל בלשונית הזאת"; resetTab(t);
+  });
+  sec.append(b);
+  $("#setNoHit").before(sec);
+}
 function closeSettings() {
+  ntOpen = false;
   $("#sheet").classList.remove("show");
   if (dirty) { dirty = false; buildTabs(); openTab(S.tab); }
 }
@@ -2476,6 +2943,7 @@ async function checkNotify() {
 // ponytail: one timer, every 90 seconds. It runs while the board is closed too (measured 11.11: the board keeps the page alive).
 setInterval(checkNotify, 90000);
 
+let ntOpen = false;   // "more channels" opened; closed again with the settings
 function buildNotify() {
   const n = N(), off = n.via === "off", list = enabled();
   document.querySelectorAll("#ntVia button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === n.via));
@@ -2494,10 +2962,22 @@ function buildNotify() {
   $("#ntOnly").value = n.only; $("#ntNever").value = n.never; $("#ntMergeAt").value = n.mergeAt;
   const box = $("#ntChannels"); box.replaceChildren();
   if (!list.length) box.append(el("div", "hint", "אין ערוץ דלוק בפיד. הדלק ערוצים בלשונית מקורות."));
+  // Channels that notify are listed; the rest of the feed's channels wait behind one button (only channels
+  // that are on in the feed can notify at all).
   const group = (title, hint, srcs) => {
     if (!srcs.length) return;
     box.append(el("div", "acct-group", title));
     if (hint) box.append(el("div", "nt-ghint", hint));
+    const quiet = srcs.filter((s) => !chOf(n, s));
+    if (!ntOpen && quiet.length) {
+      srcs = srcs.filter((s) => chOf(n, s));
+      queueMicrotask(() => {
+        const more = el("button", "chip nt-more", `עוד ${quiet.length} ערוצים בלי התראות`);
+        more.addEventListener("click", () => { ntOpen = true; buildNotify(); });
+        rowsEnd.after(more);
+      });
+    }
+    let rowsEnd = box.lastChild;
     for (const s of srcs) {
       const row = el("div", "row nrow"), seg = el("div", "tri"), cur = chOf(n, s);
       for (const [v, label] of [["", "כבוי"], ...(hasBreaking(s) ? [["breaking", "מבזקים"]] : []), ["all", "הכל"]]) {
@@ -2510,7 +2990,7 @@ function buildNotify() {
         seg.append(b);
       }
       row.classList.toggle("on", !!cur);
-      row.append(avatar(s), el("span", null, s.name), seg); box.append(row);
+      row.append(avatar(s), el("span", null, s.name), seg); box.append(row); rowsEnd = row;
     }
   };
   group("ערוצים שמסמנים מבזקים", "", list.filter(hasBreaking));
@@ -2552,7 +3032,7 @@ const ARTICLE_SITES = [
   { id: "kore", name: "כל רגע", site: "https://www.kore.co.il", feed: "https://www.kore.co.il/rss", kind: "rss" },
   { id: "hmnews", name: "המחדש", site: "https://hm-news.co.il", kind: "wp",
     feed: "https://hm-news.co.il/wp-json/wp/v2/posts?per_page=8&_embed=wp:featuredmedia&_fields=id,date_gmt,link,title,excerpt,_links,_embedded" },
-  { id: "emess", name: "אמס", site: "https://www.emess.co.il", feed: "https://www.emess.co.il/wp-json/wp/v2/posts?per_page=8", kind: "emess" },
+  { id: "emess", name: "אמס", site: "https://www.emess.co.il", feed: "https://www.emess.co.il/wp-json/wp/v2/posts?per_page=20", kind: "emess" },
   { id: "kolbarama", name: "קול ברמה", site: "https://kol-barama.co.il", feed: "https://kol-barama.co.il/feed/?post_type=item", kind: "rss" },
 ];
 const siteLogo = (a) => byId(a.id)?.logo || `https://www.google.com/s2/favicons?domain=${new URL(a.site).host}&sz=64`;
@@ -2578,7 +3058,8 @@ async function loadArticles(a) {
   if (a.kind === "wp") return list.map((m) => ({
     title: flat(m.title?.rendered), sub: flat(m.excerpt?.rendered).slice(0, 300), url: m.link, t: Date.parse(m.date_gmt + "Z") || 0,
     img: m._embedded?.["wp:featuredmedia"]?.[0]?.media_details?.sizes?.["hm-hero"]?.source_url || m._embedded?.["wp:featuredmedia"]?.[0]?.source_url || "" }));
-  return list.map((m) => ({ title: flat(m.title?.rendered), sub: flat(m.excerpt?.rendered).slice(0, 300),
+  // emess mixes its radio broadcasts (type aryo_programs, no text) into the posts: articles only.
+  return list.filter((m) => !m.type || m.type === "post").map((m) => ({ title: flat(m.title?.rendered), sub: flat(m.excerpt?.rendered).slice(0, 300),
     url: a.site + (m.final_slug || "/"), t: ilTime(String(m.date).replace("T", " ")), img: m.featured_image || "" }));
 }
 // The newest four with a picture from each site, newest first: every site gets turns, not only the busiest.
@@ -2664,6 +3145,13 @@ async function wLoad(list, pages = 1, onPart) {
     const per = orderedCats().map(([k, name]) => all.filter((x) => byId(x.src)?.cat === k).sort((a, b) => b.t - a.t).slice(0, 3)
       .map((it) => Object.assign(it, { catName: name })));
     return [0, 1, 2].flatMap((i) => per.map((l) => l[i]).filter(Boolean).sort((a, b) => b.t - a.t));
+  }
+  // The status widget: the newest popular statuses that have a picture (a video alone has none to show).
+  if (list === "status") {
+    if (S.status === false) return [];
+    await stLoad();
+    const muted = new Set((S.stMute || []).filter((x) => x.startsWith("src:")).map((x) => x.slice(4)));
+    return ST.items.filter((it) => !muted.has(it.src) && norm(it).media.some((m) => m.kind === "image")).sort((a, b) => b.t - a.t).slice(0, 6);
   }
   if (list === "deal") {
     // The five newest deals with a picture; the widget turns between them.
@@ -2761,6 +3249,17 @@ async function wPrep(list, raw) {
 let wGoto = "";
 function wJump() {
   if (!wGoto) return;
+  // From the status widget: that status, in the viewer (in the "all" feed's statuses, or the first that has it).
+  if (wGoto.startsWith("st:")) {
+    const key = wGoto.slice(3); wGoto = "";
+    return stLoad().then(() => {
+      const feeds = stFeeds(), gi = Math.max(0, feeds.findIndex((g) => g.items.some((it) => keyOf(it) === key)));
+      if (!feeds[gi]) return;
+      stOpen(feeds, gi);
+      const ii = feeds[gi].items.findIndex((it) => keyOf(it) === key);
+      if (ii >= 0) { SV.ii = ii; stShow(); }
+    });
+  }
   const at = wGoto.lastIndexOf(":"), src = wGoto.slice(0, at), id = wGoto.slice(at + 1);
   wGoto = "";
   goTo({ src, id: /^\d+$/.test(id) ? +id : id });
@@ -2823,7 +3322,12 @@ const hatederHit = sleep(0).then(() => {
   return src && get(src, `${src.base}/api/hit`, { ...json({ path: "/" + src.slug, ref: "" }), anyStatus: true }).catch(() => {});
 });
 // The board has no console: errors and reaction attempts go to the provider's log.
-const plog = (m) => fetch("/winfeed/log?m=" + encodeURIComponent(String(m).slice(0, 300))).catch(() => {});
+// The page keeps its last 40 log lines too: a problem report carries them even if the provider cannot answer.
+const PLOG = [];
+const plog = (m) => {
+  PLOG.push(`${new Date().toLocaleTimeString("he-IL")} ${String(m).slice(0, 200)}`); if (PLOG.length > 40) PLOG.shift();
+  return fetch("/winfeed/log?m=" + encodeURIComponent(String(m).slice(0, 300))).catch(() => {});
+};
 addEventListener("error", (e) => plog(`error ${e.message} @${e.lineno}`));
 addEventListener("unhandledrejection", (e) => plog(`rejection ${e.reason && (e.reason.stack || e.reason.message || e.reason)}`));async function react(post, emo) {
   plog(`react ${post ? post.dataset.key : "no post"} ${emo}`);
@@ -3031,11 +3535,24 @@ const videoObserver = new IntersectionObserver((entries) => {
 
 // ---------- lightbox / toast ----------
 let gallery = [], galleryAt = 0;
-function openLightbox(urls, at = 0) {
-  gallery = [].concat(urls); galleryAt = at; showGallery();
+// caps: the item each picture belongs to (one for all, or one per picture): its text shows under the picture.
+let lbCaps = [];
+function openLightbox(urls, at = 0, caps = null) {
+  gallery = [].concat(urls); galleryAt = at; lbCaps = Array.isArray(caps) ? caps : gallery.map(() => caps); showGallery();
   $("#lightbox").classList.add("show"); $("#lightbox").classList.toggle("multi", gallery.length > 1); $("#lbClose").focus();
 }
-function showGallery() { $("#lbImg").src = gallery[galleryAt]; $("#lbCount").textContent = gallery.length > 1 ? `${galleryAt + 1} / ${gallery.length}` : ""; }
+function showCaption() {
+  const it = lbCaps[galleryAt], box = $("#lbCap");
+  box.hidden = !it; box.classList.remove("open"); box.replaceChildren();
+  if (!it) return;
+  const n = norm(it), txt = el("div", "txt");
+  if (n.title) txt.append(el("b", null, n.title));
+  txt.append(n.body || "");
+  box.append(el("div", "by", `${byId(it.src)?.name || ""} · ${fullDate(it.t)}`), txt);
+  box.hidden = !n.title && !n.body;
+}
+$("#lbCap").addEventListener("click", (e) => { e.stopPropagation(); $("#lbCap").classList.toggle("open"); });
+function showGallery() { showCaption(); $("#lbImg").src = gallery[galleryAt]; $("#lbCount").textContent = gallery.length > 1 ? `${galleryAt + 1} / ${gallery.length}` : ""; }
 function step(d) { if (gallery.length < 2) return; galleryAt = (galleryAt + d + gallery.length) % gallery.length; showGallery(); }
 function closeLightbox() { $("#lightbox").classList.remove("show"); }
 // RTL: the "next" arrow sits on the left.
@@ -3049,6 +3566,575 @@ addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeLightbox();
   else if (e.key === "ArrowLeft") step(1);
   else if (e.key === "ArrowRight") step(-1);
+});
+// ---------- highlighted words (advanced) ----------
+// Each word of the list gets a quiet background wherever it shows in an item's title or text.
+function markWords(node) {
+  const words = (S.highlight || "").split(",").map((w) => w.trim()).filter(Boolean);
+  if (!words.length) return;
+  const re = new RegExp(words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "g");
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT), hits = [];
+  while (walker.nextNode()) { re.lastIndex = 0; if (re.test(walker.currentNode.data)) hits.push(walker.currentNode); }
+  for (const t of hits) {
+    const frag = document.createDocumentFragment(); let i = 0;
+    for (const m of t.data.matchAll(re)) { frag.append(t.data.slice(i, m.index), el("mark", "hl", m[0])); i = m.index + m[0].length; }
+    frag.append(t.data.slice(i)); t.replaceWith(frag);
+  }
+}
+
+// ---------- the same news from more channels ----------
+// Two items from different channels, at most 6 hours apart, whose words overlap (60% of the shorter one, 6
+// words at least) are one: the fuller one stays (more text, pictures count too), and the others are named
+// under it ("גם ב: ..."), each a link to its own item. Checked whenever items are added to the feed.
+const tokens = (p) => p._tok || (p._tok = (() => { const n = norm(p._item); return new Set(`${n.title} ${n.body}`.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter((w) => w.length > 2).slice(0, 60)); })());
+const fuller = (p) => { const n = norm(p._item); return n.title.length + n.body.length + 150 * n.media.length; };
+function sameNews(a, b) {
+  const x = tokens(a), y = tokens(b);
+  if (x.size < 6 || y.size < 6) return false;
+  let s = 0; for (const w of x) if (y.has(w)) s++;
+  // Most of the shorter one, and a good part of the longer one too: a news summary that mentions an item
+  // is not that item.
+  return s >= 6 && s / Math.min(x.size, y.size) >= 0.6 && s / Math.max(x.size, y.size) >= 0.4;
+}
+function showAlso(post) {
+  post.querySelector(".also")?.remove();
+  const line = el("div", "also", "גם ב: ");
+  post._also.forEach((it, i) => { const a = el("a", null, byId(it.src)?.name || ""); a.href = linkOf(it); a.title = "פתיחת הידיעה בערוץ הזה"; line.append(...(i ? [", ", a] : [a])); });
+  const actions = post.querySelector(".actions");
+  actions ? actions.before(line) : post.querySelector(".col")?.append(line);
+}
+function mergeDups() {
+  if (S.noMerge || inSaved || inGallery) return;
+  const posts = [...document.querySelectorAll("#feed > .post[data-key]")].filter((p) => p._item).slice(0, 200);
+  for (let i = 0; i < posts.length; i++) {
+    const a = posts[i];
+    if (!a.isConnected) continue;
+    for (let j = i + 1; j < posts.length; j++) {
+      const b = posts[j];
+      if (!b.isConnected || a._item.src === b._item.src || Math.abs(a._item.t - b._item.t) > 6 * 36e5 || !sameNews(a, b)) continue;
+      const [keep, drop] = fuller(a) >= fuller(b) ? [a, b] : [b, a];
+      keep._also = [...(keep._also || []), drop._item, ...(drop._also || [])];
+      drop.remove(); showAlso(keep);
+      if (drop === a) break;
+    }
+  }
+}
+let mergeQueued = false;
+new MutationObserver(() => { if (!mergeQueued) { mergeQueued = true; setTimeout(() => { mergeQueued = false; mergeDups(); }, 50); } }).observe($("#feed"), { childList: true });
+
+// ---------- the pictures of a tab ----------
+// The button at the top: the pictures of the items in the tab, in a grid, and more as you scroll (the
+// tab's own stream goes on). A "תמונות" tab shows while it is open; any tab brings the feed back.
+let picsBusy = false, picsUrls = [], picsItems = [];   // inGallery: declared with the tab state
+function showPics() {
+  const items = [...document.querySelectorAll("#feed > .post")].map((p) => [p._item, ...(p._also || [])]).flat().filter(Boolean);
+  inGallery = true; picsUrls = []; picsItems = [];
+  $("#pill").classList.remove("show"); $("#empty").hidden = true;
+  const grid = el("div", "gallery");
+  $("#feed").replaceChildren(grid);
+  buildTabs(); picsAdd(items); scroller.scrollTop = 0;
+}
+function picsAdd(items) {
+  const grid = $("#feed .gallery");
+  if (!grid) return;
+  grid.querySelector(".g-end")?.remove();
+  for (const it of items) for (const m of norm(it).media.filter((x) => x.kind === "image")) {
+    if (picsUrls.includes(m.url)) continue;
+    const at = picsUrls.push(m.url) - 1; picsItems.push(it);
+    const b = el("button", "g-item"), img = el("img"); img.src = m.url; img.loading = "lazy"; img.alt = "";
+    img.addEventListener("error", () => b.remove());
+    b.append(img, el("span", null, byId(it.src)?.name || ""));
+    b.addEventListener("click", () => openLightbox(picsUrls, at, picsItems));
+    grid.append(b);
+  }
+  grid.append(el("div", "g-end", inSaved || !stream || stream.lanes.every((l) => l.done && !l.buf.length) ? (picsUrls.length ? "אלה כל התמונות." : "אין כאן תמונות.") : "טוען עוד..."));
+}
+async function picsMore() {
+  if (!inGallery || picsBusy || inSaved || !stream) return;
+  picsBusy = true;
+  try { const got = await next(stream, PAGE); got.forEach((it) => seen.add(keyOf(it))); picsAdd(got); } finally { picsBusy = false; }
+}
+scroller.addEventListener("scroll", () => { if (inGallery && scroller.scrollTop + scroller.clientHeight > scroller.scrollHeight - 600) picsMore(); }, { passive: true });
+$("#galleryBtn").addEventListener("click", () => { if (!inGallery) { showPics(); picsMore(); } });
+
+// ---------- status, like WhatsApp ----------
+// A status for each feed (tab): its items of the last hours (12 by default) that have a picture or a video
+// and are a bit popular. "Popular" is learned: the page keeps, from what it sees over the days, how many
+// reactions an ordinary item gets in each channel (a moving average) and at each hour of the day (night is
+// quiet, noon is busy). An item is in when it has more than that (1.2 times by default, "קצת"), and 2 at least.
+const ST_LEVELS = [[1, "כמעט הכל"], [1.2, "קצת"], [1.6, "בינוני"], [2.2, "הרבה"], [3, "מאוד"]];
+const DEF_HOURS = [.35, .25, .2, .2, .25, .4, .6, .8, .95, 1, 1.05, 1.1, 1.15, 1.15, 1.1, 1.05, 1.05, 1.1, 1.2, 1.25, 1.25, 1.15, .9, .6];
+const loadJson = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || "null") ?? d; } catch { return d; } };
+let LEARN = loadJson("hz-st-learn", { ch: {}, hr: DEF_HOURS.slice(), done: [] });
+const ST_SEEN = new Set(loadJson("hz-st-seen", []));
+const saveStSeen = () => { try { localStorage.setItem("hz-st-seen", JSON.stringify([...ST_SEEN].slice(-3000))); } catch {} };
+const reactsOf = (it) => Object.values(it.reactions || {}).reduce((a, n) => a + (+n || 0), 0);
+function learn(items) {
+  const done = new Set(LEARN.done), now = Date.now();
+  for (const it of items) {
+    const age = (now - it.t) / 36e5, k = keyOf(it);
+    if (age < 3 || age > 48 || done.has(k) || !it.reactions) continue;   // settled, and once each
+    const r = reactsOf(it), avg = LEARN.ch[it.src];
+    LEARN.ch[it.src] = avg == null ? r : avg * 0.9 + r * 0.1;
+    const h = new Date(it.t).getHours();
+    LEARN.hr[h] = LEARN.hr[h] * 0.95 + (r / Math.max(1, LEARN.ch[it.src])) * 0.05;
+    done.add(k);
+  }
+  LEARN.done = [...done].slice(-4000);
+  try { localStorage.setItem("hz-st-learn", JSON.stringify(LEARN)); } catch {}
+}
+const hourWeight = (h) => LEARN.hr[h] / (LEARN.hr.reduce((a, b) => a + b, 0) / 24);
+function popular(it, median) {
+  const r = reactsOf(it);
+  if (r < 2) return false;
+  const age = (Date.now() - it.t) / 36e5;
+  const soFar = r / Math.min(1, (age + 0.5) / 3);   // a young item has not had its reactions yet
+  const usual = Math.max(1, (LEARN.ch[it.src] ?? median[it.src] ?? r) * hourWeight(new Date(it.t).getHours()));
+  return soFar / usual >= (ST_LEVELS[S.stLevel ?? 1] || ST_LEVELS[1])[0];
+}
+const hasPic = (it) => norm(it).media.some((m) => m.kind === "image" || m.kind === "video");
+let ST = { at: 0, items: [] }, stBusy = null;
+// Every channel that is on, back to the window (3 pages at most), every 3 minutes at most.
+function stLoad(force) {
+  if (!force && Date.now() - ST.at < 180000) return Promise.resolve(ST.items);
+  return (stBusy ||= (async () => { try {
+    const since = Date.now() - (S.stHours || 12) * 36e5;
+    const lists = await Promise.all(enabled().map(async (s) => {
+      let out = [], cur;
+      for (let i = 0; i < 3; i++) {
+        const r = await ADAPTERS[s.kind].page(s, cur).catch(() => null);
+        if (!r) break;
+        out = out.concat(r.items); cur = r.next;
+        if (!cur || !r.items.length || Math.min(...r.items.map((x) => x.t)) < since) break;
+      }
+      return out;
+    }));
+    const all = [...new Map(lists.flat().filter(visible).map((it) => [keyOf(it), it])).values()];
+    learn(all);
+    const median = {};
+    for (const s of enabled()) {
+      const rs = all.filter((it) => it.src === s.id && it.reactions).map(reactsOf).sort((a, b) => a - b);
+      if (rs.length) median[s.id] = rs[Math.floor(rs.length / 2)];
+    }
+    ST = { at: Date.now(), items: all.filter((it) => it.t >= since && hasPic(it) && (S.stAll || popular(it, median))).sort((a, b) => a.t - b.t) };
+    return ST.items;
+  } finally { stBusy = null; } })());
+}
+// The illustrations of the built-in feeds; a feed you built shows the logos of its channels.
+const ST_ART = {
+  all: ["#3a6ea5", "M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"],
+  news: ["#c0392b", "M20 3H4a1 1 0 0 0-1 1v15a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V4a1 1 0 0 0-1-1zm-1 16H5V5h14zM7 7h10v2H7zm0 4h4v6H7zm6 0h4v2h-4zm0 4h4v2h-4z"],
+  yeshiva: ["#6c4fb3", "M18 2H8a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h11v-2H8a1 1 0 0 1 0-2h11V3a1 1 0 0 0-1-1z"],
+  music: ["#2e8b57", "M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"],
+  torah: ["#b7791f", "M12 2c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-2 1-3.2 2-4.2 0 2 1 3 2 3 0-3-1-5 0-7.3zM9 18h6v4H9z"],
+  economy: ["#2c6e8f", "M10 4h4a2 2 0 0 1 2 2v1h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h3V6a2 2 0 0 1 2-2zm0 3h4V6h-4z"],
+  deals: ["#d35400", "M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9zM7.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"],
+  travel: ["#16a085", "M3 19h18L14 7l-4 6-2-3z"],
+  fun: ["#c2185b", "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM8.5 8a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM7 13.5h10a5 5 0 0 1-10 0z"],
+  articles: ["#546e7a", "M6 2h9l5 5v15H6zm8 1v5h5M8 12h8v1.5H8zm0 3h8v1.5H8zm0 3h5v1.5H8z"],
+};
+function stFace(g) {
+  if (g.src) { const f = el("span", "face"); f.append(avatar(g.src)); return f; }
+  const art = ST_ART[g.tab];
+  if (art) { const f = el("span", "face"); f.style.background = art[0]; f.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${art[1]}"/></svg>`; return f; }
+  const f = el("span", "face col");
+  for (const s of tabSources(g.tab).filter((x) => x.logo).slice(0, 4)) { const i = el("img"); i.src = s.logo; i.alt = ""; f.append(i); }
+  return f;
+}
+// A ring cut into one arc per status, like WhatsApp: the accent colour for new ones, grey for seen.
+function stRing(g, size) {
+  const r = el("span", "ring"); r.style.width = r.style.height = size + "px";
+  const n = Math.min(g.items.length, 30), R = size / 2 - 1.5, C = 2 * Math.PI * R, gap = n > 1 ? Math.min(4, C / n / 3) : 0, seg = C / n - gap;
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent");
+  let arcs = "";
+  g.items.slice(-n).forEach((it, i) => {
+    arcs += `<circle cx="${size / 2}" cy="${size / 2}" r="${R}" fill="none" stroke="${ST_SEEN.has(keyOf(it)) ? "#7b7d85" : accent}" stroke-width="2.5" stroke-dasharray="${seg} ${C - seg}" stroke-dashoffset="${-i * (seg + gap)}" transform="rotate(-90 ${size / 2} ${size / 2})"/>`;
+  });
+  r.innerHTML = `<svg viewBox="0 0 ${size} ${size}" aria-hidden="true">${arcs}</svg>`;
+  r.append(stFace(g));
+  return r;
+}
+const unseenOf = (g) => g.items.filter((it) => !ST_SEEN.has(keyOf(it))).length;
+const stMuted = (g) => (S.stMute || []).includes(g.id);
+// The feeds (tabs), new first, seen at the end; muted ones only on the status screen.
+function stFeeds() {
+  const ids = tabOrder().filter((id) => (id === "all" ? !S.allOff : true) && tabSources(id).length);
+  const gs = ids.map((id) => { const own = new Set(tabSources(id).map((s) => s.id)); return { id: "tab:" + id, tab: id, name: tabName(id), items: ST.items.filter((it) => own.has(it.src)) }; }).filter((g) => g.items.length);
+  return [...gs.filter((g) => unseenOf(g)), ...gs.filter((g) => !unseenOf(g))];
+}
+function stChannels() {
+  const by = new Map();
+  for (const it of ST.items) { const s = byId(it.src); if (!s) continue; if (!by.has(s.id)) by.set(s.id, { id: "src:" + s.id, src: s, name: s.name, items: [] }); by.get(s.id).items.push(it); }
+  return [...by.values()].sort((a, b) => b.items.at(-1).t - a.items.at(-1).t);
+}
+// WhatsApp's words for when: "לפני 5 דקות", "היום, 09:12", "אתמול, 21:30".
+function waWhen(t) {
+  const m = Math.round((Date.now() - t) / 6e4);
+  if (m < 1) return "עכשיו";
+  if (m === 1) return "לפני דקה";
+  if (m < 60) return `לפני ${m} דקות`;
+  const d = new Date(t), today = new Date(), y = new Date(Date.now() - 864e5), hm = fmtHour.format(t);
+  if (d.toDateString() === today.toDateString()) return `היום, ${hm}`;
+  if (d.toDateString() === y.toDateString()) return `אתמול, ${hm}`;
+  return `${fmtDate.format(t)}, ${hm}`;
+}
+function stTile(g, list) {
+  const last = g.items.at(-1), m = norm(last).media.find((x) => x.kind === "image") || norm(last).media.find((x) => x.kind === "video");
+  const b = el("button", "st-tile" + (unseenOf(g) ? "" : " seen"));
+  if (m?.kind === "image") { const i = el("img"); i.src = m.url; i.alt = ""; i.loading = "lazy"; b.append(i); }
+  else { const v = el("div", "pv"); if (m?.poster) v.style.background = `center / cover url("${m.poster}")`; else v.textContent = "▶"; b.append(v); }
+  b.append(stRing(g, 36), el("span", null, g.name));
+  b.setAttribute("aria-label", `סטטוס של ${g.name}${unseenOf(g) ? `, ${unseenOf(g)} חדשים` : ""}`);
+  b.addEventListener("click", () => stOpen(list, list.indexOf(g)));
+  return b;
+}
+function stRefresh() {
+  const on = S.status !== false;
+  $("#statusBtn").hidden = !on;
+  const feeds = on ? stFeeds().filter((g) => !stMuted(g)) : [];
+  $(".st-dot").hidden = !feeds.some(unseenOf);
+  const row = $("#stRow");
+  row.hidden = !feeds.length || inSaved || inGallery;
+  row.replaceChildren(...feeds.map((g) => stTile(g, feeds)));
+  if (!$("#stScreen").hidden) stScreenDraw();
+}
+async function stUpdate(force) { if (S.status === false) return stRefresh(); await stLoad(force); stRefresh(); }
+setInterval(() => { if (!document.hidden) stUpdate(); }, 180000);
+setTimeout(() => stUpdate(), 4000);
+// The status screen: the feeds as tiles on top, then a row for each channel, like WhatsApp.
+function stScreenDraw() {
+  const body = $("#stScreenBody"), feeds = stFeeds(), chans = stChannels();
+  body.replaceChildren();
+  if (feeds.length) { const row = el("div", "st-tiles"); row.append(...feeds.filter((g) => !stMuted(g)).map((g) => stTile(g, feeds.filter((x) => !stMuted(x))))); body.append(row); }
+  const live = chans.filter((g) => !stMuted(g)), fresh = live.filter(unseenOf), seen = live.filter((g) => !unseenOf(g)), muted = [...chans, ...feeds].filter(stMuted);
+  const row = (g, list) => {
+    const b = el("button", "st-row" + (stMuted(g) ? " muted" : "")), t = el("span");
+    t.append(el("b", null, g.name), el("small", null, waWhen(g.items.at(-1).t)));
+    b.append(stRing(g, 52), t);
+    b.addEventListener("click", () => stOpen(list, list.indexOf(g)));
+    return b;
+  };
+  if (fresh.length) { body.append(el("div", "st-sec", "עדכונים אחרונים")); fresh.forEach((g) => body.append(row(g, fresh))); }
+  if (seen.length) { body.append(el("div", "st-sec", "עדכונים שנצפו")); seen.forEach((g) => body.append(row(g, seen))); }
+  if (muted.length) { body.append(el("div", "st-sec", "עדכונים מושתקים")); muted.forEach((g) => body.append(row(g, muted))); }
+  if (!feeds.length && !chans.length) body.append(el("div", "st-empty", "אין עדכוני סטטוס כרגע.\nכשידיעה עם תמונה או סרטון תהיה פופולרית, היא תופיע כאן."));
+}
+$("#statusBtn").addEventListener("click", async () => { $("#stScreen").hidden = false; stScreenDraw(); await stLoad(); stScreenDraw(); });
+$("#stScreenBack").addEventListener("click", () => { $("#stScreen").hidden = true; stRefresh(); });
+
+// The viewer: one status after the other, 15 seconds each and more for a long text, a video to its end
+// (with sound). A tap on the left goes on, on the right goes back, holding pauses; at the end of one it
+// goes on to the next one that has new statuses, like WhatsApp.
+let SV = null;
+function stOpen(groups, gi) {
+  if (gi < 0) return;
+  const g = groups[gi], first = g.items.findIndex((it) => !ST_SEEN.has(keyOf(it)));
+  SV = { groups, gi, ii: first < 0 ? 0 : first, t0: 0, done: 0, paused: false, dur: 15000 };
+  $("#stView").hidden = false; $("#stMenu").hidden = true;
+  stShow();
+}
+function stShow() {
+  const g = SV.groups[SV.gi], it = g.items[SV.ii], n = norm(it), src = byId(it.src);
+  ST_SEEN.add(keyOf(it)); saveStSeen();
+  $("#stBars").replaceChildren(...g.items.map((_, i) => { const b = el("i"), f = el("b"); f.style.width = i < SV.ii ? "100%" : "0"; b.append(f); return b; }));
+  $("#stAv").replaceChildren(stRing({ ...g, items: [it] }, 38));
+  $("#stName").textContent = g.name;
+  $("#stSub").textContent = (g.src ? "" : (src?.name || "") + " · ") + waWhen(it.t);
+  const media = $("#stMedia"); media.replaceChildren();
+  const m = n.media.find((x) => x.kind === "video") || n.media.find((x) => x.kind === "image");
+  const words = `${n.title} ${n.body}`.split(/\s+/).filter(Boolean).length;
+  SV.dur = Math.min(45000, 15000 + Math.floor(words / 15) * 1000);
+  if (m?.kind === "video") {
+    const v = el("video"); v.src = m.url; v.playsInline = true; v.autoplay = true; v.muted = S.stSound === false;
+    v.addEventListener("loadedmetadata", () => { if (isFinite(v.duration)) SV && (SV.dur = Math.max(3000, v.duration * 1000)); });
+    v.addEventListener("ended", () => stNext());
+    media.append(v);
+  } else if (m) { const i = el("img"); i.src = m.url; i.alt = ""; media.append(i); }
+  $("#stSound").hidden = m?.kind !== "video";
+  $("#stSound").innerHTML = S.stSound === false ? "🔇" : "🔊";
+  const cap = $("#stCap"); cap.replaceChildren();
+  if (n.title) cap.append(el("b", null, n.title));
+  if (n.body) cap.append(n.body.length > 400 ? n.body.slice(0, 400) + "…" : n.body);
+  // The item, for its buttons only (reactions, link, picture, the "more" menu); no video in it.
+  const shown = { ...it, norm: { ...n, media: n.media.filter((x) => x.kind === "image") } };
+  $("#stPost").replaceChildren(render(shown));
+  SV.t0 = performance.now(); SV.done = 0; SV.paused = false;
+}
+function stTick() {
+  if (!SV || $("#stView").hidden) return;
+  const now = performance.now();
+  if (!SV.paused) { SV.done += now - SV.t0; }
+  SV.t0 = now;
+  const v = $("#stMedia video");
+  const frac = v && isFinite(v.duration) && v.duration ? v.currentTime / v.duration : SV.done / SV.dur;
+  const bar = $("#stBars").children[SV.ii]?.firstChild;
+  if (bar) bar.style.width = Math.min(100, frac * 100) + "%";
+  if (!v && SV.done >= SV.dur) stNext();
+}
+setInterval(stTick, 100);
+function stNext() {
+  const g = SV.groups[SV.gi];
+  if (SV.ii < g.items.length - 1) { SV.ii++; return stShow(); }
+  for (let j = SV.gi + 1; j < SV.groups.length; j++) if (unseenOf(SV.groups[j]) && !stMuted(SV.groups[j])) return stOpen(SV.groups, j);
+  stClose();
+}
+function stPrev() {
+  if (SV.ii > 0) { SV.ii--; return stShow(); }
+  if (SV.gi > 0) { SV.gi--; SV.ii = 0; return stShow(); }
+  stShow();
+}
+function stClose() {
+  $("#stMedia").replaceChildren(); $("#stPost").replaceChildren();
+  $("#stView").hidden = true; SV = null; stRefresh();
+}
+function stPause(on) { if (!SV) return; SV.paused = on; const v = $("#stMedia video"); if (v) on ? v.pause() : v.play().catch(() => {}); }
+// Taps on the picture: left = next, right = back; a hold pauses until released.
+let stDown = 0;
+$("#stMedia").addEventListener("pointerdown", () => { stDown = performance.now(); setTimeout(() => { if (stDown) stPause(true); }, 250); });
+$("#stMedia").addEventListener("pointerup", (e) => {
+  const held = performance.now() - stDown; stDown = 0;
+  if (held > 250) return stPause(false);
+  const r = $("#stView").getBoundingClientRect();
+  e.clientX < r.left + r.width / 2 ? stNext() : stPrev();
+});
+$("#stClose").addEventListener("click", stClose);
+$("#stSound").addEventListener("click", () => { S.stSound = S.stSound === false; saveSettings(); const v = $("#stMedia video"); if (v) v.muted = S.stSound === false; $("#stSound").innerHTML = S.stSound === false ? "🔇" : "🔊"; });
+$("#stOpenFeed").addEventListener("click", () => { const it = SV.groups[SV.gi].items[SV.ii]; stClose(); $("#stScreen").hidden = true; goTo(it); });
+$("#stDots").addEventListener("click", () => {
+  const g = SV.groups[SV.gi], menu = $("#stMenu"), muted = stMuted(g);
+  menu.replaceChildren();
+  const add = (label, fn) => { const b = el("button", null, label); b.addEventListener("click", () => { menu.hidden = true; fn(); }); menu.append(b); };
+  add(muted ? "ביטול השתקה" : "השתקה", () => {
+    S.stMute = muted ? (S.stMute || []).filter((x) => x !== g.id) : [...(S.stMute || []), g.id]; saveSettings();
+    toast(muted ? `הסטטוס של ${g.name} כבר לא מושתק` : `הסטטוס של ${g.name} הושתק`);
+    if (!muted) stNext();
+  });
+  add("פתיחה בפיד", () => $("#stOpenFeed").click());
+  menu.hidden = !menu.hidden; stPause(!menu.hidden);
+});
+addEventListener("keydown", (e) => {
+  if (!SV || $("#stView").hidden) return;
+  if (e.key === "Escape") stClose();
+  else if (e.key === "ArrowLeft") stNext();
+  else if (e.key === "ArrowRight") stPrev();
+  else if (e.key === " ") stPause(!SV.paused);
+  else return;
+  e.preventDefault(); e.stopImmediatePropagation();
+}, true);
+
+// ---------- read items ----------
+// An item counts as read once its top reaches the upper third of the feed (in either order). Remembered
+// on this computer, the last 4000; read items are a little quieter around the text, never the text itself.
+let readSave = 0;
+function markRead() {
+  const line = scroller.getBoundingClientRect().top + scroller.clientHeight / 3;
+  let added = false;
+  for (const p of document.querySelectorAll("#feed > .post[data-key]:not(.read)")) {
+    if (p.getBoundingClientRect().top < line && p.getBoundingClientRect().bottom > scroller.getBoundingClientRect().top) {
+      p.classList.add("read"); READ.add(p.dataset.key); added = true;
+    }
+  }
+  if (!added) return;
+  clearTimeout(readSave);
+  readSave = setTimeout(() => { try { localStorage.setItem("hz-read", JSON.stringify([...READ].slice(-4000))); } catch {} }, 2000);
+}
+scroller.addEventListener("scroll", () => requestAnimationFrame(markRead), { passive: true });
+setInterval(() => { if (!document.hidden) markRead(); }, 3000);
+
+// ---------- a short sound on breaking news (board open, off by default, never on Shabbat or a holiday) ----------
+function chime() {
+  if (!S.brkSound || document.hidden || holy()) return;
+  try {
+    const a = new AudioContext(), now = a.currentTime;
+    for (const [f, at] of [[880, 0], [1320, 0.12]]) {
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0, now + at); g.gain.linearRampToValueAtTime(0.12, now + at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.45);
+      o.connect(g).connect(a.destination); o.start(now + at); o.stop(now + at + 0.5);
+    }
+    setTimeout(() => a.close(), 1200);
+  } catch {}
+}
+
+// ---------- new items in the other tabs ----------
+// Every two minutes while the board is open: the first page of each channel that is on, and per tab the
+// count of items newer than the last time you were in it.
+const tabSeen = (t) => (S.tabSeen || (S.tabSeen = {}))[t];
+function seeTab(t) { (S.tabSeen || (S.tabSeen = {}))[t] = Date.now(); saveSettings(); const b = $(`#tabs [data-f="${CSS.escape(t)}"] .count`); if (b) b.remove(); }
+async function countTabs() {
+  if (!S.tabCounts) { tabCounts = {}; return showCounts(); }
+  if (document.hidden || $("#tabs").hidden) return;
+  const lists = await Promise.all(enabled().map((s) => ADAPTERS[s.kind].page(s).then((r) => r.items.filter(visible), () => [])));
+  const all = lists.flat();
+  tabCounts = {};
+  for (const b of $("#tabs").children) {
+    const t = b.dataset.f;
+    if (!t || t === "saved" || (t === tab && !inSaved)) continue;
+    if (!tabSeen(t)) { (S.tabSeen || (S.tabSeen = {}))[t] = Date.now(); continue; }
+    const ids = new Set(tabSources(t).map((s) => s.id));
+    tabCounts[t] = all.filter((it) => ids.has(it.src) && it.t > tabSeen(t)).length;
+  }
+  saveSettings();
+  showCounts();
+}
+function showCounts() {
+  for (const b of $("#tabs").children) {
+    b.querySelector(".count")?.remove();
+    const n = tabCounts[b.dataset.f];
+    if (n && !(b.dataset.f === tab && !inSaved)) { const s = el("span", "count", n > 99 ? "99+" : String(n)); s.setAttribute("aria-label", `${n} חדשות`); b.append(s); }
+  }
+}
+setInterval(countTabs, 120000);
+setTimeout(countTabs, 15000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) countTabs(); });
+
+// ---------- fonts ----------
+// Segoe UI is the system's; the others come from Google Fonts the first time they are picked.
+const FACES = [["segoe", "Segoe UI", ""], ["heebo", "Heebo", "Heebo:wght@400;600;700"], ["assistant", "Assistant", "Assistant:wght@400;600;700"],
+  ["rubik", "Rubik", "Rubik:wght@400;600;700"], ["frank", "Frank Ruhl Libre", "Frank+Ruhl+Libre:wght@400;600;700"]];
+const FACE_NAMES = { segoe: "רגיל", heebo: "היבו", assistant: "אסיסטנט", rubik: "רוביק", frank: "פרנק רוהל" };
+function loadFace(id) {
+  const f = FACES.find((x) => x[0] === id);
+  if (!f || !f[2] || document.getElementById("face-" + id)) return;
+  const l = document.createElement("link"); l.id = "face-" + id; l.rel = "stylesheet";
+  l.href = `https://fonts.googleapis.com/css2?family=${f[2]}&display=swap`;
+  document.head.append(l);
+}
+function applyFace() {
+  const f = FACES.find((x) => x[0] === S.face) || FACES[0];
+  loadFace(f[0]);
+  document.documentElement.style.setProperty("--face", `"${f[1]}"`);
+}
+function facesUI() {
+  const box = $("#setFace");
+  if (!box.childElementCount) {
+    for (const [id, family] of FACES) {
+      const b = el("button"); b.dataset.v = id;
+      const sample = el("b", null, "אבג"); sample.style.fontFamily = `"${family}", "Segoe UI", sans-serif`;
+      b.append(sample, el("small", null, FACE_NAMES[id]));
+      b.addEventListener("click", () => { S.face = id; saveSettings(); applyFace(); facesUI(); });
+      box.append(b);
+      loadFace(id);   // the samples need the fonts; only while the settings are open
+    }
+  }
+  for (const b of box.children) b.setAttribute("aria-pressed", b.dataset.v === (S.face || "segoe"));
+}
+applyFace();
+
+// ---------- an article, read in the feed ----------
+// The site's page through the provider, cut down to its text: the article body (the usual WordPress and
+// schema.org containers, else the block with the most paragraphs), rebuilt as plain elements: paragraphs,
+// headings, lists, quotes and pictures. Nothing of the site's HTML or scripts is kept.
+async function readArticle(it) {
+  const box = el("div", "reader"), m = norm(it);
+  box.append(el("div", "by", `${byId(it.src)?.name || ""} · ${fullDate(it.t)}`), el("p", null, "טוען את הכתבה..."));
+  floatSheet(m.title || "כתבה", box);
+  const get = (u) => fetch("/winfeed/proxy?u=" + encodeURIComponent(u)).then((r) => r.text()).catch(() => "");
+  let page = it.url, html = "";
+  // emess keeps its pages behind a bot check; its WordPress API (where the list comes from too) has the text.
+  const wpId = byId(it.src)?.art === "emess" && it.url.match(/\/(\d+)\/?$/)?.[1];
+  if (wpId) {
+    const j = await fetch("/winfeed/proxy?u=" + encodeURIComponent(`https://www.emess.co.il/wp-json/wp/v2/posts/${wpId}?_fields=content`)).then((r) => r.json()).catch(() => null);
+    if (j?.content?.rendered) html = `<article>${j.content.rendered}</article>`;
+  }
+  if (!html) html = await get(page);
+  // Some sites send the reader on with a refresh tag (emess): follow it once.
+  const hop = !wpId && html.length < 3000 && html.match(/http-equiv=["']refresh["'][^>]*url=([^"'>]+)/i);
+  if (hop) { page = new URL(hop[1], page).href; html = await get(page); }
+  box.lastChild.remove();
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  // The most specific container first (a selector list would take the first in page order, often too wide).
+  let main = null;
+  for (const sel of ["[itemprop=articleBody]", ".entry-content", ".post-content", ".article-content", ".td-post-content", ".single-content", "article .content", "article"]) {
+    main = doc.querySelector(sel); if (main && main.querySelectorAll("p").length >= 2) break;
+  }
+  if (!main || main.querySelectorAll("p").length < 2) {
+    main = [...doc.querySelectorAll("div, section, article")].reduce((best, d) => {
+      const n = [...d.children].filter((x) => x.tagName === "P" && x.textContent.trim().length > 40).length;
+      return n > best.n ? { d, n } : best;
+    }, { d: null, n: 1 }).d;
+  }
+  const out = [];
+  const abs = (u) => { try { return new URL(u, page).href; } catch { return ""; } };
+  // Left out: ads and share / related / comment boxes (by class or id), "עוד באתר"-style headings, blocks
+  // that are all links (the cards of other articles), and pictures that link to another page.
+  const JUNK = /(^|[\s_-])(ads?|advert\w*|banner\w*|sponsor\w*|promo\w*|outbrain|taboola|share\w*|related\w*|recommend\w*|comments?|newsletter|section-heading)([\s_-]|$)/i;
+  const MORE = /^(עוד באתר|עוד בנושא|עוד כתבות|כתבות נוספות|כתבות קשורות|קראו עוד|קראו גם|אולי יעניין|מומלצים|הכי נקראות)/;
+  const plain = (x) => x.textContent.replace(/\s+/g, " ").trim();
+  const linky = (x) => { const t = plain(x).length; return t > 0 && [...x.querySelectorAll("a")].reduce((s, a) => s + plain(a).length, 0) / t > 0.6; };
+  const away = (a) => { const h = a?.getAttribute("href") || ""; return h && !h.startsWith("#") && !/\.(jpe?g|png|webp|gif)(\?|$)/i.test(h); };
+  const walk = (node) => {
+    for (const x of node.children) {
+      const tag = x.tagName;
+      if (/^(SCRIPT|STYLE|NOSCRIPT|IFRAME|FORM|BUTTON|NAV|ASIDE|FOOTER|HEADER|SVG|INS)$/.test(tag) || JUNK.test(`${x.className} ${x.id}`)) continue;
+      if (tag === "A" && away(x)) continue;   // a card: picture and headline of another article
+      if (tag === "P" || tag === "H2" || tag === "H3" || tag === "H4" || tag === "BLOCKQUOTE") {
+        const t = plain(x);
+        if (MORE.test(t) || linky(x)) continue;
+        if (t) out.push(el(tag === "H4" ? "h3" : tag.toLowerCase(), null, t));
+        x.querySelectorAll("img").forEach((i) => { if (!away(i.closest("a"))) out.push(i); });
+      } else if (tag === "UL" || tag === "OL") {
+        if (linky(x)) continue;
+        const l = el(tag.toLowerCase());
+        for (const li of x.querySelectorAll("li")) { const t = plain(li); if (t) l.append(el("li", null, t)); }
+        if (l.childElementCount) out.push(l);
+      } else if (tag === "IMG") out.push(x);
+      else walk(x);
+    }
+  };
+  if (main) walk(main);
+  const nodes = out.map((x) => {
+    if (x.tagName !== "IMG") return x;
+    const src = abs(x.getAttribute("data-src") || x.getAttribute("data-lazy-src") || x.getAttribute("src") || "");
+    if (!/^https?:/.test(src) || /avatar|logo|icon|pixel|emoji/i.test(src)) return null;
+    const img = el("img"); img.src = src; img.alt = ""; img.loading = "lazy"; img.referrerPolicy = "no-referrer";
+    return img;
+  }).filter(Boolean);
+  const hero = m.media?.find((x) => x.kind === "image")?.url;
+  if (hero && !nodes.some((n) => n.tagName === "IMG")) { const img = el("img"); img.src = hero; img.alt = ""; nodes.unshift(img); }
+  if (nodes.filter((n) => n.tagName === "P").length < 2) nodes.push(el("p", null, m.body || "אין כאן טקסט לקריאה. אפשר לפתוח את הכתבה באתר."));
+  const site = el("button", "chip site", "לכתבה באתר");
+  site.addEventListener("click", () => openUrl(it.url));
+  box.append(...nodes, site);
+}
+
+// ---------- keyboard ----------
+// ↑/↓ the previous / next item, Enter opens it on its site, S saves it, R refreshes, Home the newest,
+// 1-9 the tabs, ? the list. Not while typing, and not over settings, a picture or a floating window.
+let kbAt = null;
+function kbMove(d) {
+  const posts = [...document.querySelectorAll("#feed > .post")].filter((p) => !p.classList.contains("skeleton"));
+  if (!posts.length) return;
+  let i = kbAt && posts.includes(kbAt) ? posts.indexOf(kbAt) + d : -1;
+  if (i < 0 && !(kbAt && posts.includes(kbAt))) {
+    const top = scroller.getBoundingClientRect().top;
+    i = posts.findIndex((p) => p.getBoundingClientRect().bottom > top + 24);
+  }
+  i = Math.max(0, Math.min(posts.length - 1, i));
+  kbAt?.classList.remove("kb"); kbAt = posts[i]; kbAt.classList.add("kb");
+  kbAt.scrollIntoView({ block: kbAt.offsetHeight > scroller.clientHeight ? "start" : "nearest", behavior: "smooth" });
+}
+const KEYS = [["↑ ↓", "הידיעה הקודמת / הבאה"], ["Enter", "פתיחת הידיעה באתר שלה"], ["S", "שמירה, או הסרה מהשמורים"], ["R", "רענון"],
+  ["Home", "לידיעות החדשות"], ["1-9", "מעבר בין הלשוניות"], ["?", "הרשימה הזאת"], ["Esc", "סגירת חלון"]];
+function showKeys() {
+  const g = el("div", "keys");
+  for (const [k, what] of KEYS) g.append(el("kbd", null, k), el("span", null, what));
+  floatSheet("קיצורי מקלדת", g);
+}
+addEventListener("keydown", (e) => {
+  if (e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.target.closest?.("input, textarea, select, [contenteditable]")) return;
+  if ($("#sheet").classList.contains("show") || $("#lightbox").classList.contains("show") || document.querySelector(".qsheet, .wiz:not([hidden])") || !$("#stScreen").hidden || !$("#stView").hidden) return;
+  const k = e.key, code = e.code;
+  if (k === "ArrowDown" || k === "ArrowUp") kbMove(k === "ArrowDown" ? 1 : -1);
+  else if (k === "Enter" && kbAt?._item && !e.target.closest?.("button, a")) openUrl(linkOf(kbAt._item));
+  else if (code === "KeyS" && kbAt?._item) toast(toggleSaved(kbAt._item) ? "נשמר" : "הוסר מהשמורים");
+  else if (code === "KeyR") $("#refresh").click();
+  else if (k === "Home") { kbAt?.classList.remove("kb"); kbAt = null; if (inSaved) scroller.scrollTop = 0; else jumpToNewest(); }
+  else if (/^Digit[1-9]$/.test(code) && !e.shiftKey) $("#tabs").children[+code.slice(5) - 1]?.click();
+  else if (k === "?" || (code === "Slash" && e.shiftKey)) showKeys();
+  else return;
+  e.preventDefault();
 });
 async function copy(text) {
   try { await navigator.clipboard.writeText(text); toast("הועתק"); } catch { toast("ההעתקה נכשלה"); }

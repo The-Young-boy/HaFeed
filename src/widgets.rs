@@ -85,7 +85,7 @@ pub fn push(body: &str) {
 /// The list a widget shows: the breaking news, the headline's pictures ("top:<pick>"), or the pick itself.
 fn list_of(w: &W) -> String {
     match w.kind.as_str() {
-        "breaking" | "popular" | "cats" | "deal" => w.kind.clone(),
+        "breaking" | "popular" | "cats" | "deal" | "status" => w.kind.clone(),
         "top" => format!("top:{}", w.pick),
         // search: the query is the list ("search:<words>"); none yet = nothing to load
         _ => w.pick.clone(),
@@ -133,6 +133,8 @@ fn open(w_kind: &str, it: &Value) -> Value {
     // A feed item in the headline opens in the feed (the page jumps to it); everything else opens on its site.
     // A site's article is not in the feed: it opens on its site.
     if w_kind == "top" && !s(&it["key"]).is_empty() { json!({ "type": "Action.Execute", "verb": "open", "data": { "key": it["key"] } }) }
+    // A status opens in the feed's status viewer, at that status.
+    else if w_kind == "status" && !s(&it["key"]).is_empty() { json!({ "type": "Action.Execute", "verb": "open", "data": { "key": format!("st:{}", s(&it["key"])) } }) }
     else { json!({ "type": "Action.OpenUrl", "url": it["url"] }) }
 }
 fn s(v: &Value) -> &str { v.as_str().unwrap_or("") }
@@ -221,15 +223,16 @@ pub fn render(w: &W) -> String {
         let msg = if !known { WAIT } else if w.kind == "breaking" { "אין מבזקים חדשים כרגע." } else { "אין כאן ידיעות כרגע." };
         return card(empty(msg), json!([]), head);
     }
-    let body = if w.kind == "deal" {
-        // The five newest deals, turning every 15 seconds: picture, product, price line.
-        let n = list.len().min(5);
+    let body = if w.kind == "deal" || w.kind == "status" {
+        // The five newest deals (or popular statuses), turning every 15 seconds: picture, headline, a line more.
+        let kind = w.kind.as_str();
+        let n = list.len().min(if kind == "status" { 6 } else { 5 });
         let at = TURN.load(Ordering::Relaxed) % n;
         let it = &list[at];
         match w.size {
-            WidgetSize::Small => json!([lead("deal", it, "Default", 3, 0, 0)]),
-            WidgetSize::Medium => json!([lead_side("deal", it, 3), dots(n, at)]),
-            _ => json!([lead("deal", it, "Medium", 3, 220, 3), dots(n, at)]),
+            WidgetSize::Small => json!([lead(kind, it, "Default", 3, 0, 0)]),
+            WidgetSize::Medium => json!([lead_side(kind, it, 3), dots(n, at)]),
+            _ => json!([lead(kind, it, "Medium", 3, 220, 3), dots(n, at)]),
         }
     } else if w.kind == "cats" {
         // One line per category: its newest item.
@@ -345,7 +348,7 @@ fn send(id: &str, w: &W) {
 }
 fn update_all(only_top: bool) {
     let w = WIDGETS.lock().unwrap();
-    for (id, x) in w.iter().filter(|(_, x)| x.active && (!only_top || x.kind == "top" || x.kind == "deal")) { send(id, x); }
+    for (id, x) in w.iter().filter(|(_, x)| x.active && (!only_top || x.kind == "top" || x.kind == "deal" || x.kind == "status")) { send(id, x); }
 }
 
 fn from_ctx(ctx: &WidgetContext, custom: &str) -> windows_core::Result<(String, W)> {
@@ -463,7 +466,7 @@ pub fn dump(path: &str, data_file: Option<&str>) {
         *DATA.lock().unwrap() = Some(json!({ "lists": v }));
     }
     let mut out = vec![];
-    for (kind, pick) in [("breaking", "breaking"), ("channel", "tab:all"), ("top", "articles:all"), ("popular", ""), ("cats", ""), ("deal", ""), ("search", "search:בחירות")] {
+    for (kind, pick) in [("breaking", "breaking"), ("channel", "tab:all"), ("top", "articles:all"), ("popular", ""), ("cats", ""), ("deal", ""), ("status", ""), ("search", "search:בחירות")] {
         for (name, size) in [("small", WidgetSize::Small), ("medium", WidgetSize::Medium), ("large", WidgetSize::Large)] {
             let w = W { kind: kind.into(), size, pick: pick.into(), active: true, customizing: false };
             out.push(json!({ "kind": kind, "size": name, "card": serde_json::from_str::<Value>(&render(&w)).unwrap_or(Value::Null) }));

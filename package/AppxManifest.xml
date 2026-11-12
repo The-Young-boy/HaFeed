@@ -7,7 +7,7 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap uap3 com rescap">
 
-  <Identity Name="HagizraWidget" Publisher="CN=HaFeed Dev" Version="0.3.83.0" ProcessorArchitecture="x64" />
+  <Identity Name="HagizraWidget" Publisher="CN=HaFeed Dev" Version="0.3.100.0" ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>הפיד</DisplayName>
@@ -48,8 +48,8 @@
                 </Activation>
                 <Definitions>
                   <Definition Id="hagizra" DisplayName="הפיד" Description="ערוצי חדשות ועדכונים"
-                    ContentUri="https://hagizra.news/winfeed/?board=1"
-                    WebRequestFilter="https://hagizra.news/winfeed/*"
+                    ContentUri="https://dev.hagizra.news/winfeed/?board=1"
+                    WebRequestFilter="https://dev.hagizra.news/winfeed/*"
                     Icon="Images\logo.png" />
                 </Definitions>
               </FeedProvider>
@@ -152,6 +152,19 @@
                     <ThemeResources>
                       <Icons><Icon Path="Images\logo.png" /></Icons>
                       <Screenshots><Screenshot Path="Images\w-deal.png" DisplayAltText="הדיל האחרון" /></Screenshots>
+                      <DarkMode />
+                      <LightMode />
+                    </ThemeResources>
+                  </Definition>
+                  <Definition Id="status" DisplayName="סטטוס" Description="הסטטוסים הפופולריים מהפיד, עם תמונה" IsCustomizable="false">
+                    <Capabilities>
+                      <Capability><Size Name="small" /></Capability>
+                      <Capability><Size Name="medium" /></Capability>
+                      <Capability><Size Name="large" /></Capability>
+                    </Capabilities>
+                    <ThemeResources>
+                      <Icons><Icon Path="Images\logo.png" /></Icons>
+                      <Screenshots><Screenshot Path="Images\w-status.png" DisplayAltText="סטטוס" /></Screenshots>
                       <DarkMode />
                       <LightMode />
                     </ThemeResources>

@@ -41,6 +41,8 @@ createServer(async (req, res) => {
     } else if (u.pathname === "/winfeed/notify" || u.pathname === "/winfeed/log") {
       console.log(u.pathname, Object.fromEntries(u.searchParams)); // notifications and page logs: the provider's job in the board
       res.writeHead(200, { "content-type": "text/plain" }).end("");
+    } else if (u.pathname === "/winfeed/report") {
+      res.writeHead(200, { "content-type": "application/json" }).end(`{"build":"dev","log":"(the provider's log, in the board)"}`);
     } else if (u.pathname === "/winfeed/accent") {
       res.writeHead(200, { "content-type": "text/plain" }).end("#0078D4"); // the Windows accent: the provider reads it in the board
     } else if (u.pathname === "/winfeed/update") {

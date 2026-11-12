@@ -1,5 +1,6 @@
 // Hagizra feed for the Windows widgets board: a Windows App SDK feed provider (out-of-proc COM server).
-// The board loads https://hagizra.news/winfeed/ ; WebRequestFilter routes that path to OnResourceRequested,
+// The board loads https://hagizra.news/winfeed/ (the dev copy: dev.hagizra.news, so an installed release beside it
+// never gets its requests); WebRequestFilter routes that path to OnResourceRequested,
 // which answers with the embedded page. The page then reads hagizra.news/api/* same-origin.
 #![windows_subsystem = "windows"]
 #![allow(non_snake_case)]
@@ -152,6 +153,10 @@ impl IFeedResourceProvider_Impl for Provider_Impl {
         if let Some(q) = uri.split_once("/winfeed/widgets/push?").map(|(_, q)| q) {
             widgets::push(&http::query(q, "d").next().unwrap_or_default());
             return args.SetResponse(&respond(b"ok", "text/plain", 200)?);
+        }
+        // /winfeed/report: what a problem report carries (see reportProblem in the page).
+        if uri.contains("/winfeed/report") {
+            return args.SetResponse(&respond(report().as_bytes(), "application/json", 200)?);
         }
         // /winfeed/accent: the Windows accent colour as #RRGGBB (the page's default accent).
         if uri.contains("/winfeed/accent") {
@@ -309,9 +314,28 @@ fn main() {
 
 /// HKCU\Software\Microsoft\Windows\DWM AccentColor, a DWORD in ABGR order.
 fn accent() -> String {
-    use std::os::windows::process::CommandExt;
-    let out = std::process::Command::new("reg").args(["query", r"HKCU\Software\Microsoft\Windows\DWM", "/v", "AccentColor"])
-        .creation_flags(0x0800_0000).output().map(|o| String::from_utf8_lossy(&o.stdout).to_string()).unwrap_or_default();
-    let v = out.split("0x").nth(1).and_then(|h| u32::from_str_radix(h.trim(), 16).ok());
+    let v = reg("HKCU\\Software\\Microsoft\\Windows\\DWM", "AccentColor").and_then(|h| u32::from_str_radix(h.trim_start_matches("0x"), 16).ok());
     v.map(|v| format!("#{:02X}{:02X}{:02X}", v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff)).unwrap_or_default()
+}
+
+/// One registry value as `reg query` prints it (a DWORD as 0x...), with no window.
+fn reg(key: &str, name: &str) -> Option<String> {
+    use std::os::windows::process::CommandExt;
+    let out = std::process::Command::new("reg").args(["query", key, "/v", name]).creation_flags(0x0800_0000).output().ok()?;
+    let out = String::from_utf8_lossy(&out.stdout).to_string();
+    let line = out.lines().find(|l| l.trim_start().starts_with(name))?;
+    line.split_whitespace().nth(2).map(str::to_string)
+}
+/// For a problem report: the Windows build, and the last 40 lines of the provider's log.
+fn report() -> String {
+    let nt = "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
+    let build = match (reg(nt, "CurrentBuild"), reg(nt, "UBR").and_then(|u| u32::from_str_radix(u.trim_start_matches("0x"), 16).ok())) {
+        (Some(b), Some(u)) => format!("{b}.{u}"),
+        (Some(b), None) => b,
+        _ => String::new(),
+    };
+    let log = std::fs::read_to_string(std::env::temp_dir().join("hagizra-feed.log")).unwrap_or_default();
+    let lines: Vec<&str> = log.lines().collect();
+    let tail: Vec<String> = lines[lines.len().saturating_sub(40)..].iter().map(|l| l.chars().take(200).collect()).collect();
+    serde_json::json!({ "build": build, "log": tail.join("\n") }).to_string()
 }
