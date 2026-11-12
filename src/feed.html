@@ -1007,7 +1007,7 @@ button.react:hover { border-color: var(--accent); }
         <dt id="aboutDlLbl" title="המספר מגיע מהמונה של GitHub, שסופר כמה פעמים הורידו את קובץ ההתקנה. הפיד לא עוקב אחרי התקנות ולא שולח שום מידע." hidden>הורדות</dt><dd id="aboutDl" class="dl" title="המספר מגיע מהמונה של GitHub, שסופר כמה פעמים הורידו את קובץ ההתקנה. הפיד לא עוקב אחרי התקנות ולא שולח שום מידע." hidden></dd>
       </dl>
       <div class="upd" id="aboutUpd"><span id="updText"></span><button class="chip" id="updBtn" hidden></button></div>
-      <div class="about-links"><button class="chip" id="whatsNew">מה חדש בגרסה</button><button class="chip" id="reportBtn">דיווח על בעיה</button><button class="chip" id="keysBtn">קיצורי מקלדת</button></div>
+      <div class="about-links"><button class="chip" id="whatsNew">מה חדש בגרסה</button><button class="chip" id="reportBtn">דיווח על בעיה</button><button class="chip" id="techBtn" title="להדבקה בפורום או בהודעה פרטית">העתקת פרטים טכניים</button><button class="chip" id="keysBtn">קיצורי מקלדת</button></div>
       <div class="row upd-auto" id="updAutoRow"><span>עדכונים אוטומטיים<small>הפיד בודק ב-GitHub פעם בכמה שעות, ומתעדכן לבד</small></span><button class="switch" role="switch" id="updAuto" aria-label="עדכונים אוטומטיים"></button></div>
       <p class="hint">התוכן שייך לערוצים עצמם. הפיד רק מציג אותו, ובכל ידיעה יש דרך להגיע לאתר המקור.</p>
       <p class="hint">ההגדרות, ההתחברויות והתגובות שלך נשמרות רק במחשב הזה. ההתחברויות נשמרות מוצפנות.</p>
@@ -2814,19 +2814,31 @@ async function showWhatsNew() {
 }
 // A problem report: a new GitHub issue, filled in with the version, Windows and the provider's last log lines.
 // It opens in the browser; nothing is sent until the user submits it there.
-async function reportProblem() {
+// What a problem report carries: the version, Windows, the channels that are on, and the provider's and page's logs.
+async function techInfo() {
   const [st, sys, ua] = await Promise.all([upd(), fetch("/winfeed/report").then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
     navigator.userAgentData?.getHighEntropyValues(["platformVersion"]).catch(() => null)]);
   // The provider knows the exact build; the browser only whether it is Windows 11 (platform 13 and up).
   const win = sys.build || (ua?.platformVersion ? `${parseInt(ua.platformVersion) >= 13 ? "Windows 11" : "Windows 10"} (${ua.platformVersion})` : "לא ידוע");
   const names = enabled().map((s) => s.name).join(", ");
   const log = [sys.log ? "הספק:\n" + sys.log : "הספק: לא ענה", PLOG.length ? "הדף:\n" + PLOG.join("\n") : ""].filter(Boolean).join("\n\n").slice(-3800);
-  const body = `**מה קרה?**\n\n\n**מה ציפית שיקרה?**\n\n\n---\nגרסה: ${st?.current || "?"}${st?.dev ? " (פיתוח)" : ""}\nWindows: ${win}\nערוצים דלוקים (${enabled().length}): ${names}\n\n<details><summary>יומן</summary>\n\n\`\`\`\n${log}\n\`\`\`\n</details>\n`;
+  return { ver: `${st?.current || "?"}${st?.dev ? " (פיתוח)" : ""}`, win, channels: `(${enabled().length}): ${names}`, log };
+}
+async function reportProblem() {
+  const t = await techInfo();
+  const body = `**מה קרה?**\n\n\n**מה ציפית שיקרה?**\n\n\n---\nגרסה: ${t.ver}\nWindows: ${t.win}\nערוצים דלוקים ${t.channels}\n\n<details><summary>יומן</summary>\n\n\`\`\`\n${t.log}\n\`\`\`\n</details>\n`;
   openUrl("https://github.com/The-Young-boy/HaFeed/issues/new?title=" + encodeURIComponent("בעיה: ") + "&body=" + encodeURIComponent(body));
   toast("נפתח דף בעיה ב-GitHub. שום דבר לא נשלח עד שתלחצו שם על שליחה.");
 }
+// The same details as plain text, for the forum or a private message.
+async function copyTech() {
+  const t = await techInfo();
+  const text = `פרטים טכניים - הפיד\nגרסה: ${t.ver}\nWindows: ${t.win}\nערוצים דלוקים ${t.channels}\n\nיומן:\n${t.log}`;
+  try { await navigator.clipboard.writeText(text); toast("הפרטים הועתקו. אפשר להדביק בפורום או בהודעה."); } catch { toast("ההעתקה לא הצליחה"); }
+}
 $("#whatsNew").addEventListener("click", showWhatsNew);
 $("#reportBtn").addEventListener("click", reportProblem);
+$("#techBtn").addEventListener("click", copyTech);
 $("#keysBtn").addEventListener("click", showKeys);
 // ---------- updates (the provider checks GitHub; see update.rs) ----------
 const upd = (q = "") => fetch("/winfeed/update" + q).then((r) => (r.ok ? r.json() : null)).catch(() => null);
