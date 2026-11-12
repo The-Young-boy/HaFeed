@@ -476,6 +476,11 @@ $Sync = [hashtable]::Synchronized(@{})
 $Worker = {
     param($Sync, $Self, $PkgName, $Mode)
     function Step($i, $state, $note) { $Sync["s$i"] = @($state, $note) }
+    # The temp folder by its full name. %TEMP% can hold the short (8.3) name of a Hebrew user folder, which
+    # PowerShell's path commands do not find; the known-folder API gives the long one.
+    $Tmp = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Temp'
+    [void][IO.Directory]::CreateDirectory($Tmp)
+    Set-Location -LiteralPath $Tmp
     # The admin step, with no window: conhost --headless runs PowerShell (Windows names it "Console Window Host"
     # in the request, as the explanation page shows). The step writes its result to a file.
     function Elevated($arg) {
@@ -498,12 +503,16 @@ $Worker = {
             Step 1 'run'
             if (Get-Runtime) { Step 1 'skip' 'כבר מותקן.' }
             else {
-                $exe = Join-Path $env:TEMP 'WindowsAppRuntimeInstall-x64.exe'
+                $exe = Join-Path $Tmp 'WindowsAppRuntimeInstall-x64.exe'
                 Step 1 'run' 'מוריד ממיקרוסופט...'
                 curl.exe -sSfL -o $exe 'https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe'
                 if ($LASTEXITCODE -or -not (Test-Path $exe)) { Step 1 'fail' 'ההורדה נכשלה. בדוק את החיבור לאינטרנט ונסה שוב.'; throw 'stop' }
                 Step 1 'run' 'מתקין...'
-                Start-Process $exe -ArgumentList '--quiet' -Wait -WindowStyle Hidden
+                # .NET, not Start-Process: Start-Process checks PowerShell's current folder, and the short (8.3) name
+                # of a Hebrew user folder (C:\Users\870E~1) fails that check.
+                $psi = New-Object Diagnostics.ProcessStartInfo $exe, '--quiet'
+                $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $psi.WorkingDirectory = $Tmp
+                [Diagnostics.Process]::Start($psi).WaitForExit()
                 Remove-Item $exe -Force -ErrorAction SilentlyContinue
                 if (-not (Get-Runtime)) { Step 1 'fail' 'ההתקנה של הרכיב נכשלה.'; throw 'stop' }
                 Step 1 'ok' 'הותקן.'
@@ -519,7 +528,7 @@ $Worker = {
                 $asset = $rel.assets | Where-Object name -eq 'HaFeed.msix' | Select-Object -First 1
                 if ($asset -and $tag -gt [version]$Version) {
                     Step 2 'run' "מוריד את גרסה $tag מ-GitHub..."
-                    $newer = Join-Path $env:TEMP "$PkgName-$tag.msix"
+                    $newer = Join-Path $Tmp "$PkgName-$tag.msix"
                     curl.exe -sSfL -o $newer $asset.browser_download_url
                     if (-not $LASTEXITCODE -and (Test-Path $newer)) {
                         try { Add-AppxPackage -Path $newer -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop; $done = "$tag" } catch { }
@@ -528,7 +537,7 @@ $Worker = {
                 }
             } catch { }
             if (-not $done) {
-                $msix = Join-Path $env:TEMP "$PkgName.msix"
+                $msix = Join-Path $Tmp "$PkgName.msix"
                 [IO.File]::WriteAllBytes($msix, (Get-Data 'MSIX'))
                 try { Add-AppxPackage -Path $msix -AllowUnsigned -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop; $done = $Version }
                 catch { Step 2 'fail' "ההתקנה נכשלה: $(($_.Exception.Message -split "`r?`n")[0])"; throw 'stop' }
