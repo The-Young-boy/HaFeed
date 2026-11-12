@@ -307,7 +307,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .pill.down svg { rotate: 180deg; }
 
 /* ---------- settings ---------- */
-.sheet { position: fixed; inset: 0; z-index: 40; display: grid; justify-items: center; align-items: start; background: rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s; overflow-y: auto; }
+.sheet { position: fixed; inset: 0; z-index: 40; display: grid; grid-template-columns: 100%; justify-items: center; align-items: start; background: rgba(0,0,0,.45); opacity: 0; pointer-events: none; transition: opacity .2s; overflow-y: auto; }
 .sheet.show { opacity: 1; pointer-events: auto; }
 .sheet .panel { width: min(560px, 100%); margin: 24px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.35); translate: 0 12px; transition: translate .25s cubic-bezier(.2,.8,.2,1); }
 .sheet.show .panel { translate: 0 0; }
@@ -324,9 +324,35 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* Scrollbars: thin, rounded, theme colors, wider on hover */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--muted) 40%, transparent); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
-::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--muted) 70%, transparent); border-width: 2px; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--accent) 75%, transparent); border-width: 2px; }
 ::-webkit-scrollbar-button { display: none; height: 0; }
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+/* The accent colour: twelve squares (Windows, ten colours, your own), a row of 12, 6 or 4 by the width. */
+.swatches { display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; }
+@media (max-width: 560px) { .swatches { grid-template-columns: repeat(6, 1fr); } }
+@media (max-width: 280px) { .swatches { grid-template-columns: repeat(4, 1fr); } }
+.swatches button { aspect-ratio: 1; border-radius: 10px; position: relative; display: grid; place-items: center; box-shadow: inset 0 0 0 1px rgba(127,127,127,.25); }
+.swatches button[aria-pressed="true"]::after { content: ""; position: absolute; inset: -4px; border-radius: 13px; border: 2px solid var(--text); }
+.swatches .own { background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+.swatches svg { width: 18px; height: 18px; fill: #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
+input[type=range].bar { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; border-radius: 999px; margin: 0; outline: none; }
+input[type=range].bar::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid rgba(0,0,0,.25); box-shadow: 0 1px 4px rgba(0,0,0,.4); cursor: grab; }
+input[type=range].bar:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--text); outline-offset: 2px; }
+.bar.hue { background: linear-gradient(to left, red, yellow, lime, cyan, blue, magenta, red); }
+.acc-own { margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; }
+.acc-own .r { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.acc-own i { width: 36px; height: 36px; border-radius: 10px; flex: none; }
+.acc-own input.hex { flex: 1; min-width: 0; font: 14px Consolas, monospace; text-align: left; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-raised); color: var(--text); }
+.acc-own input.hex.bad { border-color: #e5484d; }
+.acc-shade { display: flex; justify-content: space-between; margin: 16px 0 6px; font-size: 13px; }
+.acc-shade small { color: var(--muted); }
+/* A quote opened in place, under the quote; a second click closes it. */
+.quote.busy { opacity: .6; cursor: progress; }
+.quote.open { border-end-start-radius: 0; border-end-end-radius: 0; margin-bottom: 0; }
+.quote-open { margin: 0 0 6px; border-inline-start: 3px solid var(--accent); border-radius: 0 0 6px 6px; background: var(--accent-soft); }
+.quote-open .post { background: transparent; border: 0; animation: none; }
+.qsheet .panel { max-height: calc(100% - 48px); overflow-y: auto; }
 .row.big > span { font-weight: 700; font-size: 15px; }
 .nt-h { margin-top: 18px !important; }
 #ntBody > h3:first-child { margin-top: 14px; }
@@ -657,6 +683,16 @@ button.react:hover { border-color: var(--accent); }
       </div>
     </section>
     <section data-t="display">
+      <h3>צבע הדגשה</h3>
+      <div class="swatches" id="setAccent" role="group" aria-label="צבע הדגשה"></div>
+      <div class="acc-own" id="accOwn" hidden>
+        <input type="range" class="bar hue" id="accHue" min="0" max="360" aria-label="גוון">
+        <div class="r"><i id="accChip"></i><input class="hex" id="accHex" dir="ltr" spellcheck="false" maxlength="7" aria-label="קוד צבע, למשל #E5484D"><button class="chip" id="accDone">סיום</button></div>
+      </div>
+      <div class="acc-shade"><span>בהירות</span><small id="accShadeTxt"></small></div>
+      <input type="range" class="bar" id="accShade" min="-3" max="3" step="1" aria-label="בהירות הצבע">
+    </section>
+    <section data-t="display">
       <h3>בפיד</h3>
       <div class="row"><span>פס מבזקים<small>מבזקים רצים בראש הפיד</small></span><button class="switch" role="switch" id="setBreaking" aria-label="פס מבזקים"></button></div>
       <div class="row"><span>תגובות אימוג'י<small>מונים, ואפשרות להגיב באתרים שתומכים</small></span><button class="switch" role="switch" id="setReacts" aria-label="תגובות אימוג'י"></button></div>
@@ -672,6 +708,15 @@ button.react:hover { border-color: var(--accent); }
         <label>ועד <input type="number" min="0" max="500" id="setKeepItems"> ידיעות חדשות</label>
       </div>
       <div class="hint">כשחוזרים ללוח בתוך הזמן הזה, ונוספו פחות ידיעות מהמספר הזה, הפיד נשאר איפה שעצרת. אחרת הוא קופץ לידיעות החדשות.</div>
+    </section>
+    <section data-t="advanced">
+      <h3>לחיצה על ציטוט</h3>
+      <div class="seg seg3" id="setQuote">
+        <button data-v="inline"><b>פתיחה במקום</b><small>מתחת לציטוט</small></button>
+        <button data-v="float"><b>חלון צף</b><small>מעל הפיד</small></button>
+        <button data-v="load"><b>טעינה עד אליה</b><small>עד 10 עמודים</small></button>
+      </div>
+      <div class="hint">כשההודעה המצוטטת עוד לא נטענה בפיד. כשהיא כבר בפיד, הפיד גולל אליה. ב"טעינה עד אליה", הודעה ישנה יותר נפתחת במקום.</div>
     </section>
     <section data-t="advanced">
       <h3>הסתרת ידיעות</h3>
@@ -1412,7 +1457,7 @@ function render(it, fresh) {
     const q = normalize(n.quote.text), box = el("button", "quote");
     if (q.title) box.append(el("b", null, q.title + " "));
     box.append(q.body);
-    box.addEventListener("click", () => goTo({ src: it.src, id: n.quote.id }));
+    box.addEventListener("click", () => openQuote({ src: it.src, id: n.quote.id }, box));
     col.append(box);
   }
   if (n.title) col.append(el("div", "title", n.title));
@@ -1617,8 +1662,40 @@ function applyLook() {
   for (const f of ["s", "l"]) r.classList.toggle("font-" + f, S.font === f);
   r.classList.toggle("compact", !!S.compact);
   if (S.theme === "light" || S.theme === "dark") r.dataset.theme = S.theme; else delete r.dataset.theme;
+  applyAccent();
 }
+// The accent colour: Windows' own (the provider reads it), or one the user chose. Like Windows, a lighter
+// shade on dark and a darker one on light, so links and buttons stay readable; "בהירות" moves it 8% a step.
+const ACCENTS = [["כחול", "#0078D4"], ["תכלת", "#0099BC"], ["טורקיז", "#00B294"], ["ירוק", "#10893E"], ["צהוב", "#C19C00"],
+  ["כתום", "#F7630C"], ["אדום", "#E81123"], ["ורוד", "#E3008C"], ["סגול", "#8764B8"], ["אפור", "#69797E"]];
+let winAccent = "#0078D4";
+const isHex = (v) => /^#[0-9a-f]{6}$/i.test(v || "");
+function hexHsl(hex) {
+  const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  let h = 0, s = 0;
+  if (d) { s = d / (1 - Math.abs(2 * l - 1)); h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360; }
+  return [Math.round(h), Math.round(s * 100), Math.round(l * 100)];
+}
+function hslHex(h, s, l) {
+  s /= 100; l /= 100;
+  const f = (n) => { const k = (n + h / 30) % 12; return Math.round((l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255).toString(16).padStart(2, "0"); };
+  return ("#" + f(0) + f(8) + f(4)).toUpperCase();
+}
+const accentBase = () => (isHex(S.accent) ? S.accent : winAccent);
+function applyAccent() {
+  const dark = S.theme === "dark" || (S.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  const [h, s, l] = hexHsl(accentBase());
+  const ll = Math.max(15, Math.min(85, l + (dark ? 12 : -8) + (S.accentShade || 0) * 8));
+  const r = document.documentElement.style;
+  r.setProperty("--accent", `hsl(${h} ${s}% ${ll}%)`);
+  r.setProperty("--accent-soft", `hsl(${h} ${s}% ${ll}% / ${dark ? 0.14 : 0.1})`);
+}
+const winAccentLoad = () => fetch("/winfeed/accent").then((r) => (r.ok ? r.text() : "")).then((v) => { if (isHex(v) && v !== winAccent) { winAccent = v; applyAccent(); if ($("#setAccent").childElementCount) accentUI(); } }).catch(() => {});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyAccent);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) winAccentLoad(); });
 applyLook();
+winAccentLoad();
 // ---------- refresh ----------
 async function poll(force = false) {
   checkVersion();
@@ -1744,19 +1821,58 @@ function breakingStrip() {
   run.style.setProperty("--dur", Math.max(25, run.textContent.length / 6) + "s");
   $("#pill").style.setProperty("--pill-top", ($(".top").offsetHeight + 12) + "px");
 }
+const postSel = (it) => `#feed .post[data-key="${CSS.escape(keyOf(it))}"]`;
+const inFeed = (it) => !!document.querySelector(postSel(it)) || pending.some((p) => keyOf(p) === keyOf(it));
+async function loadTo(it) {
+  for (let i = 0; i < 10 && !inFeed(it); i++) { while (loading) await new Promise((r) => setTimeout(r, 100)); await loadMore(); }
+  return inFeed(it);
+}
+// One message alone (older than the feed reached), drawn as a post that is not part of the feed.
+async function oneOf(it) {
+  const src = byId(it.src), ad = ADAPTERS[src.kind];
+  const full = ad.one ? await ad.one(src, it.id).catch(() => null) : null;
+  if (!full || (!full.text && !full.norm?.body)) return null;
+  const post = render(full);
+  post.removeAttribute("data-key");   // not counted, trimmed or found as a feed item
+  return post;
+}
+function quoteSheet(post) {
+  const sh = el("div", "sheet qsheet show"), panel = el("div", "panel"), head = el("header"), x = el("button", "x");
+  sh.setAttribute("role", "dialog"); sh.setAttribute("aria-modal", "true"); sh.setAttribute("aria-label", "ההודעה המצוטטת");
+  x.setAttribute("aria-label", "סגירה"); x.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.6 12L4.3 5.7l1.4-1.4 6.3 6.3 6.3-6.3 1.4 1.4-6.3 6.3 6.3 6.3-1.4 1.4-6.3-6.3-6.3 6.3-1.4-1.4 6.3-6.3z"/></svg>`;
+  head.append(el("h2", null, "ההודעה המצוטטת"), x); panel.append(head, post); sh.append(panel);
+  const close = () => { sh.remove(); document.removeEventListener("keydown", esc, true); };
+  const esc = (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+  x.addEventListener("click", close);
+  sh.addEventListener("click", (e) => { if (e.target === sh) close(); });
+  document.addEventListener("keydown", esc, true);
+  document.body.append(sh); x.focus();
+}
+// A click on a quote: in the feed already = go there. Otherwise by the setting (advanced): open it under the
+// quote (a second click closes it), in a floating window, or load the feed down to it (then in place).
+async function openQuote(q, box) {
+  const open = box.nextElementSibling?.classList.contains("quote-open") ? box.nextElementSibling : null;
+  if (open) { open.remove(); box.classList.remove("open"); box.setAttribute("aria-expanded", "false"); return; }
+  if (box.classList.contains("busy")) return;
+  box.classList.add("busy");
+  try {
+    if (inFeed(q) || (S.quoteMode === "load" && await loadTo(q))) return goTo(q);
+    const post = await oneOf(q);
+    if (!post) return toast("ההודעה המצוטטת לא נמצאה");
+    if (S.quoteMode === "float") return quoteSheet(post);
+    const wrap = el("div", "quote-open"); wrap.append(post);
+    box.after(wrap); box.classList.add("open"); box.setAttribute("aria-expanded", "true");
+  } finally { box.classList.remove("busy"); }
+}
 async function goTo(it) {
   if (!tabSources(tab).some((s) => s.id === it.src)) { S.tab = S.allOff ? byId(it.src).cat : "all"; saveSettings(); buildTabs(); openTab(S.tab); }
-  const sel = `#feed .post[data-key="${CSS.escape(keyOf(it))}"]`;
   if (pending.some((p) => keyOf(p) === keyOf(it))) flushPending();
-  for (let i = 0; i < 10 && !document.querySelector(sel); i++) { while (loading) await new Promise((r) => setTimeout(r, 100)); await loadMore(); }
-  let post = document.querySelector(sel);
+  await loadTo(it);
+  const post = document.querySelector(postSel(it));
   if (!post) {
-    // Older than 10 pages: fetch that one message (offset = "before id") and show it at the newest edge.
-    const src = byId(it.src), ad = ADAPTERS[src.kind];
-    const full = ad.one ? await ad.one(src, it.id).catch(() => null) : null;
-    if (full) it = full;
-    if (!it.text && !it.norm?.body) return toast("הידיעה ישנה מדי");
-    seen.add(keyOf(it)); post = render(it, true); $("#feed").prepend(post);   // older than the stream reached: show it at the newest edge
+    // Older than 10 pages: in a floating window, so the feed keeps its order.
+    const one = await oneOf(it);
+    return one ? quoteSheet(one) : toast("הידיעה ישנה מדי");
   }
   post.scrollIntoView({ block: "center", behavior: "smooth" });
   post.classList.remove("flash"); void post.offsetWidth; post.classList.add("flash");
@@ -2019,6 +2135,8 @@ function buildSettings() {
   $("#setKeepSec").value = S.keepSec; $("#setKeepItems").value = S.keepItems;
   document.querySelectorAll("#setFont button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.font || "m")));
   document.querySelectorAll("#setTheme button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.theme || "auto")));
+  document.querySelectorAll("#setQuote button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.quoteMode || "inline")));
+  accentUI();
   $("#setCompact").setAttribute("aria-checked", !!S.compact);
   $("#setAds").setAttribute("aria-checked", !!S.showAds);
   $("#setHide").value = S.hideWords || "";
@@ -2106,6 +2224,40 @@ $("#cutText").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#cu
 document.querySelectorAll("#setLayout button").forEach((b) => b.addEventListener("click", () => { S.layout = b.dataset.v; saveSettings(); buildSettings(); applyOrder(); }));
 document.querySelectorAll("#setFont button").forEach((b) => b.addEventListener("click", () => { S.font = b.dataset.v; saveSettings(); buildSettings(); applyLook(); }));
 document.querySelectorAll("#setTheme button").forEach((b) => b.addEventListener("click", () => { S.theme = b.dataset.v; saveSettings(); buildSettings(); applyLook(); }));
+document.querySelectorAll("#setQuote button").forEach((b) => b.addEventListener("click", () => { S.quoteMode = b.dataset.v; saveSettings(); buildSettings(); }));
+// The colour squares: Windows, ten colours, and your own (a hue bar and a colour code; it applies as you move).
+function accentUI() {
+  const box = $("#setAccent"), own = isHex(S.accent) && !ACCENTS.some(([, c]) => c === S.accent);
+  if (!box.childElementCount) {
+    const sq = (cls, title, v) => { const b = el("button", cls); b.title = title; b.setAttribute("aria-label", title); b.dataset.v = v; if (isHex(v)) b.style.background = v; box.append(b); return b; };
+    // Windows: its own colour, with the Windows mark.
+    sq("win", "כמו Windows", "win").innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8.5v8.5H3zM12.5 3H21v8.5h-8.5zM3 12.5h8.5V21H3zM12.5 12.5H21V21h-8.5z"/></svg>';
+    for (const [n, c] of ACCENTS) sq("", n, c);
+    sq("own", "צבע אחר", "own").innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>';
+    box.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.v === "own") { $("#accOwn").hidden = !$("#accOwn").hidden; if (!$("#accOwn").hidden) ownShow(accentBase()); }
+      else { S.accent = b.dataset.v; $("#accOwn").hidden = true; saveSettings(); applyAccent(); }
+      accentUI();
+    });
+  }
+  box.firstElementChild.style.background = winAccent;
+  for (const b of box.children) b.setAttribute("aria-pressed", b.dataset.v === "own" ? own || !$("#accOwn").hidden : $("#accOwn").hidden && (b.dataset.v === (S.accent || "win")));
+  const [h, s] = hexHsl(accentBase()), step = S.accentShade || 0;
+  $("#accShade").value = step;
+  $("#accShade").style.background = `linear-gradient(to left, hsl(${h} ${s}% 20%), hsl(${h} ${s}% 50%), hsl(${h} ${s}% 80%))`;
+  $("#accShadeTxt").textContent = ["הכי כהה", "כהה יותר", "כהה", "רגיל", "בהיר", "בהיר יותר", "הכי בהיר"][step + 3];
+}
+function ownShow(hex) { $("#accHue").value = hexHsl(hex)[0]; $("#accHex").value = hex; $("#accHex").classList.remove("bad"); $("#accChip").style.background = hex; }
+function ownSet(hex) { S.accent = hex; saveSettings(); applyAccent(); accentUI(); $("#accChip").style.background = hex; }
+$("#accHue").addEventListener("input", () => { const hex = hslHex(+$("#accHue").value, 80, 45); $("#accHex").value = hex; $("#accHex").classList.remove("bad"); ownSet(hex); });
+$("#accHex").addEventListener("input", () => {
+  let v = $("#accHex").value.trim(); if (v && v[0] !== "#") v = "#" + v;
+  const ok = isHex(v); $("#accHex").classList.toggle("bad", !ok && v.length >= 7);
+  if (ok) { $("#accHue").value = hexHsl(v)[0]; ownSet(v.toUpperCase()); }
+});
+$("#accDone").addEventListener("click", () => { $("#accOwn").hidden = true; accentUI(); });
+$("#accShade").addEventListener("input", () => { S.accentShade = +$("#accShade").value; saveSettings(); applyAccent(); accentUI(); });
 $("#setCompact").addEventListener("click", () => { S.compact = !S.compact; saveSettings(); buildSettings(); applyLook(); });
 $("#setAds").addEventListener("click", () => { S.showAds = !S.showAds; saveSettings(); buildSettings(); dirty = true; });
 $("#setHide").addEventListener("change", (e) => { S.hideWords = e.target.value; saveSettings(); dirty = true; });

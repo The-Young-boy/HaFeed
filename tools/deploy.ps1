@@ -15,8 +15,11 @@ $next = "$($v.Groups[1]).$($v.Groups[2]).$([int]$v.Groups[3].Value + 1).0"
 $m -replace '(Identity[^>]*Version=")[\d.]+(")', "`${1}$next`$2" | Set-Content package\AppxManifest.xml -NoNewline
 New-Item -ItemType Directory -Force "$Dst\Images", "$Dst\Public" | Out-Null
 Copy-Item package\Images\* "$Dst\Images" -Force
+# The dev copy has a red logo, so it is not mistaken for the installed release beside it.
+Copy-Item package\Images-dev\* "$Dst\Images" -Force
 for ($i = 0; $i -lt 10; $i++) {
-    Get-Process hagizra-widget -ErrorAction SilentlyContinue | Stop-Process -Force
+    # Only the dev copy: the installed release runs the same exe name and is left alone.
+    Get-Process hagizra-widget -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$Dst\*" } | Stop-Process -Force
     try { Copy-Item target\release\hagizra-widget.exe $Dst -Force; break } catch { Start-Sleep -Milliseconds 400 }
 }
 Copy-Item package\AppxManifest.xml $Dst -Force

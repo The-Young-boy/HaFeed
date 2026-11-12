@@ -153,6 +153,10 @@ impl IFeedResourceProvider_Impl for Provider_Impl {
             widgets::push(&http::query(q, "d").next().unwrap_or_default());
             return args.SetResponse(&respond(b"ok", "text/plain", 200)?);
         }
+        // /winfeed/accent: the Windows accent colour as #RRGGBB (the page's default accent).
+        if uri.contains("/winfeed/accent") {
+            return args.SetResponse(&respond(accent().as_bytes(), "text/plain", 200)?);
+        }
         // /winfeed/update?do=check|install[&auto=0|1]: the About tab (see update.rs).
         if let Some(q) = uri.split_once("/winfeed/update").map(|(_, q)| q) {
             let q = q.trim_start_matches('?');
@@ -301,4 +305,13 @@ fn main() {
         let mut idx = 0u32;
         let _ = CoWaitForMultipleObjects(0, u32::MAX, 1, &ev, &mut idx);
     }
+}
+
+/// HKCU\Software\Microsoft\Windows\DWM AccentColor, a DWORD in ABGR order.
+fn accent() -> String {
+    use std::os::windows::process::CommandExt;
+    let out = std::process::Command::new("reg").args(["query", r"HKCU\Software\Microsoft\Windows\DWM", "/v", "AccentColor"])
+        .creation_flags(0x0800_0000).output().map(|o| String::from_utf8_lossy(&o.stdout).to_string()).unwrap_or_default();
+    let v = out.split("0x").nth(1).and_then(|h| u32::from_str_radix(h.trim(), 16).ok());
+    v.map(|v| format!("#{:02X}{:02X}{:02X}", v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff)).unwrap_or_default()
 }
