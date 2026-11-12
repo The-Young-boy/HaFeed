@@ -432,13 +432,18 @@ mark.hl { background: color-mix(in srgb, var(--accent) 22%, transparent); color:
 .st-tile.seen { opacity: .7; }
 .ring { position: relative; display: inline-block; flex: none; }
 .ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.ring .face { position: absolute; inset: 3px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--bg-raised); }
+.ring .face { position: absolute; inset: 4px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--bg-raised); }
 .ring .face img { width: 100%; height: 100%; object-fit: cover; }
+.ring .face > .letter { width: 100%; height: 100%; display: grid; place-items: center; font-size: 15px; }
 .ring .face.col { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; place-items: stretch; }
 .ring .face svg { position: static; width: 58%; height: 58%; fill: #fff; }
 .st-screen { position: fixed; inset: 0; z-index: 42; background: var(--bg); display: flex; flex-direction: column; }
 .st-screen header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
 .st-screen h2 { margin: 0; font-size: 19px; }
+.st-screen header .st-sp { flex: 1; }
+.st-about { padding: 10px 16px 0; font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.st-about button { color: var(--accent); font-size: 12.5px; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+#stReload.busy svg { animation: spin 1s linear infinite; }
 .st-back { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: inherit; }
 .st-back svg { width: 22px; height: 22px; }
 .st-body { flex: 1; overflow-y: auto; }
@@ -871,6 +876,7 @@ button.react:hover { border-color: var(--accent); }
       <input type="range" class="bar" id="setStLevel" min="0" max="4" step="1" aria-label="כמה פופולרי">
       <div class="nums" style="margin-top:12px"><label>ידיעות מ-<input type="number" min="1" max="48" id="setStHours"> השעות האחרונות</label></div>
       <div class="row"><span>כל הידיעות עם תמונה או סרטון<small>לא רק הפופולריות</small></span><button class="switch" role="switch" id="setStAll" aria-label="כל הידיעות עם תמונה או סרטון"></button></div>
+      <div class="row"><span>ערוצים בלי תגובות<small>בערוץ שאין בו תגובות אין איך למדוד פופולריות: כל הידיעות שלו עם תמונה נכנסות. כבוי: אף אחת</small></span><button class="switch" role="switch" id="setStNoReact" aria-label="ערוצים בלי תגובות"></button></div>
       <div class="hint">פופולרי = יותר תגובות מהרגיל באותו ערוץ ובאותה שעה ביום. הפיד לומד לבד מה רגיל, מהידיעות שהוא רואה.</div>
     </section>
     <section data-t="advanced">
@@ -1028,7 +1034,7 @@ button.react:hover { border-color: var(--accent); }
   <div class="lb-cap" id="lbCap" hidden></div>
 </div>
 <div class="st-screen" id="stScreen" role="dialog" aria-modal="true" aria-label="סטטוס" hidden>
-  <header><button class="st-back" id="stScreenBack" aria-label="חזרה"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 11h12.2l-5.6-5.6L12 4l8 8-8 8-1.4-1.4 5.6-5.6H4z"/></svg></button><h2>סטטוס</h2></header>
+  <header><button class="st-back" id="stScreenBack" aria-label="חזרה"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 11h12.2l-5.6-5.6L12 4l8 8-8 8-1.4-1.4 5.6-5.6H4z"/></svg></button><h2>סטטוס</h2><span class="st-sp"></span><button class="st-back" id="stReload" title="בדיקה אם יש חדשים" aria-label="בדיקה אם יש חדשים"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/></svg></button><button class="st-back" id="stAllSeen" title="סימון הכל כנצפה" aria-label="סימון הכל כנצפה"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12zM.41 13.41 6 19l1.41-1.41L1.83 12z"/></svg></button></header>
   <div class="st-body" id="stScreenBody"></div>
 </div>
 <div class="st-view" id="stView" role="dialog" aria-modal="true" aria-label="סטטוס" hidden>
@@ -2459,6 +2465,7 @@ function buildSettings() {
   $("#setMerge").setAttribute("aria-checked", !S.noMerge);
   $("#setStatus").setAttribute("aria-checked", S.status !== false);
   $("#setStAll").setAttribute("aria-checked", !!S.stAll);
+  $("#setStNoReact").setAttribute("aria-checked", S.stNoReact !== false);
   $("#setStLevel").value = S.stLevel ?? 1; $("#stLevelTxt").textContent = ST_LEVELS[S.stLevel ?? 1][1];
   $("#setStHours").value = S.stHours || 12;
   $("#setTextOnly").setAttribute("aria-checked", !!S.textOnly);
@@ -2645,6 +2652,7 @@ document.querySelectorAll("#setQuote button").forEach((b) => b.addEventListener(
 // These change how items are drawn: the tab is drawn again.
 const redraw = () => { CUT_VER++; if (!inSaved && !inGallery) openTab(S.tab); };
 $("#setStatus").addEventListener("click", () => { S.status = S.status === false; saveSettings(); buildSettings(); stUpdate(); });
+$("#setStNoReact").addEventListener("click", () => { S.stNoReact = S.stNoReact === false; saveSettings(); buildSettings(); stUpdate(true); });
 $("#setStAll").addEventListener("click", () => { S.stAll = !S.stAll; saveSettings(); buildSettings(); stUpdate(true); });
 $("#setStLevel").addEventListener("input", (e) => { S.stLevel = +e.target.value; saveSettings(); $("#stLevelTxt").textContent = ST_LEVELS[S.stLevel][1]; });
 $("#setStLevel").addEventListener("change", () => stUpdate(true));
@@ -2754,7 +2762,7 @@ const RESET = {
   display: ["status", "layout", "order", "font", "face", "date", "theme", "accent", "accentShade", "breaking", "reactions", "autoplay", "autoSound", "compact", "tabCounts"],
   feeds: ["tabOrder", "catOrder", "allEx", "allOff"],
   sources: ["on"],
-  advanced: ["keepSec", "keepItems", "hideWords", "highlight", "mutes", "pollSec", "cuts", "quoteMode", "showAds", "brkSound", "noMerge", "textOnly", "stLevel", "stHours", "stAll"],
+  advanced: ["keepSec", "keepItems", "hideWords", "highlight", "mutes", "pollSec", "cuts", "quoteMode", "showAds", "brkSound", "noMerge", "textOnly", "stLevel", "stHours", "stAll", "stNoReact"],
 };
 function resetTab(t) {
   const before = JSON.stringify(S);
@@ -3667,6 +3675,10 @@ const DEF_HOURS = [.35, .25, .2, .2, .25, .4, .6, .8, .95, 1, 1.05, 1.1, 1.15, 1
 const loadJson = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || "null") ?? d; } catch { return d; } };
 let LEARN = loadJson("hz-st-learn", { ch: {}, hr: DEF_HOURS.slice(), done: [] });
 const ST_SEEN = new Set(loadJson("hz-st-seen", []));
+// When each item first became a status: the order of a status (an older item that becomes popular later
+// comes after the ones already there, so new ones are always at the end).
+const ST_FIRST = new Map(loadJson("hz-st-first", []));
+const saveStFirst = () => { try { localStorage.setItem("hz-st-first", JSON.stringify([...ST_FIRST].slice(-3000))); } catch {} };
 const saveStSeen = () => { try { localStorage.setItem("hz-st-seen", JSON.stringify([...ST_SEEN].slice(-3000))); } catch {} };
 const reactsOf = (it) => Object.values(it.reactions || {}).reduce((a, n) => a + (+n || 0), 0);
 function learn(items) {
@@ -3716,13 +3728,20 @@ function stLoad(force) {
       const rs = all.filter((it) => it.src === s.id && it.reactions).map(reactsOf).sort((a, b) => a - b);
       if (rs.length) median[s.id] = rs[Math.floor(rs.length / 2)];
     }
-    ST = { at: Date.now(), items: all.filter((it) => it.t >= since && hasPic(it) && (S.stAll || popular(it, median))).sort((a, b) => a.t - b.t) };
+    // A channel with no reactions at all (articles, some channels) has nothing to measure: by the setting,
+    // all its items with a picture, or none.
+    const noReacts = new Set(enabled().filter((s) => !canReact(s) || !all.some((it) => it.src === s.id && it.reactions && reactsOf(it) > 0)).map((s) => s.id));
+    const keep = (it) => S.stAll || (noReacts.has(it.src) ? S.stNoReact !== false : popular(it, median));
+    const now = Date.now(), items = all.filter((it) => it.t >= since && hasPic(it) && keep(it));
+    for (const it of items) if (!ST_FIRST.has(keyOf(it))) ST_FIRST.set(keyOf(it), now);
+    saveStFirst();
+    const first = (it) => ST_FIRST.get(keyOf(it));
+    ST = { at: now, items: items.sort((a, b) => first(a) - first(b) || a.t - b.t) };
     return ST.items;
   } finally { stBusy = null; } })());
 }
 // The illustrations of the built-in feeds; a feed you built shows the logos of its channels.
 const ST_ART = {
-  all: ["#3a6ea5", "M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z"],
   news: ["#c0392b", "M20 3H4a1 1 0 0 0-1 1v15a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V4a1 1 0 0 0-1-1zm-1 16H5V5h14zM7 7h10v2H7zm0 4h4v6H7zm6 0h4v2h-4zm0 4h4v2h-4z"],
   yeshiva: ["#6c4fb3", "M18 2H8a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h11v-2H8a1 1 0 0 1 0-2h11V3a1 1 0 0 0-1-1z"],
   music: ["#2e8b57", "M12 3v10.55A4 4 0 1 0 14 17V7h4V3z"],
@@ -3735,20 +3754,25 @@ const ST_ART = {
 };
 function stFace(g) {
   if (g.src) { const f = el("span", "face"); f.append(avatar(g.src)); return f; }
+  if (g.tab === "all") { const f = el("span", "face"), i = el("img"); i.src = LOGO; i.alt = ""; f.append(i); return f; }
   const art = ST_ART[g.tab];
   if (art) { const f = el("span", "face"); f.style.background = art[0]; f.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${art[1]}"/></svg>`; return f; }
   const f = el("span", "face col");
-  for (const s of tabSources(g.tab).filter((x) => x.logo).slice(0, 4)) { const i = el("img"); i.src = s.logo; i.alt = ""; f.append(i); }
+  const withLogo = tabSources(g.tab).filter((x) => x.logo).slice(0, 4);
+  // No logos (some channels have none): the first channel's letter avatar.
+  if (!withLogo.length) { const one = el("span", "face"); const s = tabSources(g.tab)[0]; if (s) one.append(avatar(s)); return one; }
+  for (const s of withLogo) { const i = el("img"); i.src = s.logo; i.alt = ""; f.append(i); }
   return f;
 }
 // A ring cut into one arc per status, like WhatsApp: the accent colour for new ones, grey for seen.
 function stRing(g, size) {
   const r = el("span", "ring"); r.style.width = r.style.height = size + "px";
-  const n = Math.min(g.items.length, 30), R = size / 2 - 1.5, C = 2 * Math.PI * R, gap = n > 1 ? Math.min(4, C / n / 3) : 0, seg = C / n - gap;
+  const n = Math.min(g.items.length, 30), R = size / 2 - 2, C = 2 * Math.PI * R, gap = n > 1 ? Math.min(4, C / n / 3) : 0, seg = C / n - gap;
   const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent");
   let arcs = "";
   g.items.slice(-n).forEach((it, i) => {
-    arcs += `<circle cx="${size / 2}" cy="${size / 2}" r="${R}" fill="none" stroke="${ST_SEEN.has(keyOf(it)) ? "#7b7d85" : accent}" stroke-width="2.5" stroke-dasharray="${seg} ${C - seg}" stroke-dashoffset="${-i * (seg + gap)}" transform="rotate(-90 ${size / 2} ${size / 2})"/>`;
+    const seen = ST_SEEN.has(keyOf(it));
+    arcs += `<circle cx="${size / 2}" cy="${size / 2}" r="${R}" fill="none" stroke="${seen ? "#7b7d85" : accent}" stroke-opacity="${seen ? 0.6 : 1}" stroke-width="${seen ? 1.5 : 3.5}" stroke-dasharray="${seg} ${C - seg}" stroke-dashoffset="${-i * (seg + gap)}" transform="rotate(-90 ${size / 2} ${size / 2})"/>`;
   });
   r.innerHTML = `<svg viewBox="0 0 ${size} ${size}" aria-hidden="true">${arcs}</svg>`;
   r.append(stFace(g));
@@ -3807,6 +3831,10 @@ setTimeout(() => stUpdate(), 4000);
 function stScreenDraw() {
   const body = $("#stScreenBody"), feeds = stFeeds(), chans = stChannels();
   body.replaceChildren();
+  const about = el("div", "st-about", `הידיעות הפופולריות עם תמונה או סרטון מ-${S.stHours || 12} השעות האחרונות: יותר תגובות מהרגיל באותו ערוץ ובאותה שעה ביום. `);
+  const how = el("button", null, "לשנות");
+  how.addEventListener("click", () => { $("#stScreen").hidden = true; buildSettings(); $("#sheet").classList.add("show"); setTab("advanced"); setTimeout(() => $("#setStLevel").scrollIntoView({ block: "center" }), 100); });
+  about.append(how); body.append(about);
   if (feeds.length) { const row = el("div", "st-tiles"); row.append(...feeds.filter((g) => !stMuted(g)).map((g) => stTile(g, feeds.filter((x) => !stMuted(x))))); body.append(row); }
   const live = chans.filter((g) => !stMuted(g)), fresh = live.filter(unseenOf), seen = live.filter((g) => !unseenOf(g)), muted = [...chans, ...feeds].filter(stMuted);
   const row = (g, list) => {
@@ -3823,6 +3851,8 @@ function stScreenDraw() {
 }
 $("#statusBtn").addEventListener("click", async () => { $("#stScreen").hidden = false; stScreenDraw(); await stLoad(); stScreenDraw(); });
 $("#stScreenBack").addEventListener("click", () => { $("#stScreen").hidden = true; stRefresh(); });
+$("#stReload").addEventListener("click", async () => { $("#stReload").classList.add("busy"); await stUpdate(true); $("#stReload").classList.remove("busy"); stScreenDraw(); toast("הסטטוסים עודכנו"); });
+$("#stAllSeen").addEventListener("click", () => { for (const it of ST.items) ST_SEEN.add(keyOf(it)); saveStSeen(); stRefresh(); stScreenDraw(); toast("כל הסטטוסים סומנו כנצפו"); });
 
 // The viewer: one status after the other, 15 seconds each and more for a long text, a video to its end
 // (with sound). A tap on the left goes on, on the right goes back, holding pauses; at the end of one it
@@ -3831,7 +3861,7 @@ let SV = null;
 function stOpen(groups, gi) {
   if (gi < 0) return;
   const g = groups[gi], first = g.items.findIndex((it) => !ST_SEEN.has(keyOf(it)));
-  SV = { groups, gi, ii: first < 0 ? 0 : first, t0: 0, done: 0, paused: false, dur: 15000 };
+  SV = { groups, gi, ii: first < 0 ? 0 : first, t0: 0, done: 0, paused: false, dur: 15000, skip: first >= 0 };
   $("#stView").hidden = false; $("#stMenu").hidden = true;
   stShow();
 }
@@ -3839,9 +3869,10 @@ function stShow() {
   const g = SV.groups[SV.gi], it = g.items[SV.ii], n = norm(it), src = byId(it.src);
   ST_SEEN.add(keyOf(it)); saveStSeen();
   $("#stBars").replaceChildren(...g.items.map((_, i) => { const b = el("i"), f = el("b"); f.style.width = i < SV.ii ? "100%" : "0"; b.append(f); return b; }));
-  $("#stAv").replaceChildren(stRing({ ...g, items: [it] }, 38));
-  $("#stName").textContent = g.name;
-  $("#stSub").textContent = (g.src ? "" : (src?.name || "") + " · ") + waWhen(it.t);
+  // In a feed's status, the header is this status's channel (its logo and name); the feed's name goes small.
+  $("#stAv").replaceChildren(stRing(src ? { id: "src:" + src.id, src, name: src.name, items: [it] } : { ...g, items: [it] }, 38));
+  $("#stName").textContent = src?.name || g.name;
+  $("#stSub").textContent = (g.src ? "" : g.name + " · ") + waWhen(it.t);
   const media = $("#stMedia"); media.replaceChildren();
   const m = n.media.find((x) => x.kind === "video") || n.media.find((x) => x.kind === "image");
   const words = `${n.title} ${n.body}`.split(/\s+/).filter(Boolean).length;
@@ -3876,7 +3907,10 @@ function stTick() {
 setInterval(stTick, 100);
 function stNext() {
   const g = SV.groups[SV.gi];
-  if (SV.ii < g.items.length - 1) { SV.ii++; return stShow(); }
+  // Seen here or in another feed's status: skipped, when the status was opened for its new ones.
+  let n = SV.ii + 1;
+  while (SV.skip && n < g.items.length && ST_SEEN.has(keyOf(g.items[n]))) n++;
+  if (n < g.items.length) { SV.ii = n; return stShow(); }
   for (let j = SV.gi + 1; j < SV.groups.length; j++) if (unseenOf(SV.groups[j]) && !stMuted(SV.groups[j])) return stOpen(SV.groups, j);
   stClose();
 }
