@@ -28,5 +28,13 @@ pub fn announce(id: &str, title: &str, body: &str) -> windows_core::Result<()> {
     let a = FeedAnnouncement::CreateInstance(&HSTRING::from(id), &HSTRING::from(title), &HSTRING::from(body), &icon, &icon)?;
     a.SetShowBadgeIfUserNotEngaged(true)?;
     a.SetPrimaryTextColor(AnnouncementTextColor::Accent)?;
+    // The test from Settings: shown for a few seconds and gone within a minute. Without this Windows keeps an
+    // announcement on the button until the board is opened.
+    // A real one goes away after 10 minutes if nobody opened the board.
+    let ticks = |secs: u64| (secs * 10_000_000) as i64;   // 100 ns units
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    if id.starts_with("test-") { a.SetDuration(windows_time::TimeSpan { duration: ticks(8) })?; }
+    let keep = if id.starts_with("test-") { 60 } else { 600 };
+    a.SetExpirationTime(windows_time::DateTime { universal_time: ticks(now + 11_644_473_600 + keep) })?;   // since 1601
     FeedManager::GetDefault()?.TryShowAnnouncement(&HSTRING::from("HagizraFeed"), &HSTRING::from("hagizra"), &a)
 }

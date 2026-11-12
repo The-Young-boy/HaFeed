@@ -13,5 +13,6 @@ fn main() {
         "Windows.Storage.Streams.RandomAccessStreamReference", "Windows.Storage.Streams.IRandomAccessStream", "Windows.Storage.Streams.IRandomAccessStreamReference", "Windows.Storage.Streams.IRandomAccessStreamWithContentType",
         "Windows.UI.Notifications.ToastNotificationManager", "Windows.UI.Notifications.ToastNotification", "Windows.UI.Notifications.ToastNotifier",
         "Windows.Data.Xml.Dom.XmlDocument", "Windows.Foundation.Uri", "Windows.Storage.Streams", "Windows.Storage.StorageStreamTransaction", "Windows.UI.Notifications.ScheduledToastNotification",
+        "Windows.Networking.Connectivity", "Windows.Networking.HostName", "Windows.Networking.HostNameType", "Windows.Networking.DomainNameType",
     ]);
 }

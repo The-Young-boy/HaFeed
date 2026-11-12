@@ -43,6 +43,8 @@ createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "text/plain" }).end("");
     } else if (u.pathname === "/winfeed/report") {
       res.writeHead(200, { "content-type": "application/json" }).end(`{"build":"dev","log":"(the provider's log, in the board)"}`);
+    } else if (u.pathname === "/winfeed/metered") {
+      res.writeHead(200, { "content-type": "text/plain" }).end(process.env.METERED ? "1" : "0"); // Windows says: the provider reads it in the board
     } else if (u.pathname === "/winfeed/accent") {
       res.writeHead(200, { "content-type": "text/plain" }).end("#0078D4"); // the Windows accent: the provider reads it in the board
     } else if (u.pathname === "/winfeed/update") {

@@ -907,6 +907,21 @@ button.react:hover { border-color: var(--accent); }
       <div class="row sub" id="setStRowRow"><span>שורה בראש הפיד<small>כבוי: הסטטוס רק בכפתור למעלה</small></span><button class="switch" role="switch" id="setStRow" aria-label="שורת סטטוס בראש הפיד"></button></div>
     </section>
     <section data-t="display">
+      <h3>חיסכון בנתונים</h3>
+      <div class="seg seg3" id="setSaver">
+        <button data-v="auto"><b>אוטומטי</b><small>בחיבור מדוד</small></button>
+        <button data-v="on"><b>תמיד</b><small>גם ברשת רגילה</small></button>
+        <button data-v="off"><b>כבוי</b><small>אף פעם</small></button>
+      </div>
+      <div class="hint" id="saverNow"></div>
+      <div class="hint">בזמן חיסכון:</div>
+      <div class="row sub"><span>בלי עבודה ברקע<small>כשהלוח סגור: אין התראות, והווידג'טים לא מתעדכנים</small></span><button class="switch" role="switch" data-sv="svBg" aria-label="בלי עבודה ברקע"></button></div>
+      <div class="row sub"><span>סרטונים רק בלחיצה<small>הסרטון לא נטען בכלל עד שלוחצים עליו</small></span><button class="switch" role="switch" data-sv="svVid" aria-label="סרטונים רק בלחיצה"></button></div>
+      <div class="row sub"><span>בלי סטטוס<small>הסטטוס טוען תמונות מכל הערוצים</small></span><button class="switch" role="switch" data-sv="svStatus" aria-label="בלי סטטוס"></button></div>
+      <div class="row sub"><span>בלי תמונות<small>כמו "טקסט בלבד": תמונה נטענת רק בלחיצה</small></span><button class="switch" role="switch" data-sv="svPics" aria-label="בלי תמונות"></button></div>
+      <div class="row sub"><span>בדיקה אם יש חדש</span><div class="tri" id="setSvPoll"><button data-v="0">רגיל</button><button data-v="60">כל דקה</button><button data-v="300">כל 5 דקות</button></div></div>
+    </section>
+    <section data-t="display">
       <h3>בפיד</h3>
       <div class="row"><span>פס מבזקים<small>מבזקים רצים בראש הפיד</small></span><button class="switch" role="switch" id="setBreaking" aria-label="פס מבזקים"></button></div>
       <div class="row"><span>תגובות אימוג'י<small>מונים, ואפשרות להגיב באתרים שתומכים</small></span><button class="switch" role="switch" id="setReacts" aria-label="תגובות אימוג'י"></button></div>
@@ -1630,7 +1645,7 @@ function mediaBox(item, of) {
     v.addEventListener("timeupdate", () => { if (v.duration) dur.textContent = clock(v.duration - v.currentTime); });
     v.addEventListener("play", () => box.classList.add("auto"));
     v.addEventListener("pause", () => box.classList.remove("auto"));
-    const start = () => { v.muted = false; v.controls = true; v.loop = false; box.classList.add("playing"); v.play(); };
+    const start = () => { if (!v.getAttribute("src")) v.src = v.dataset.src; v.muted = false; v.controls = true; v.loop = false; box.classList.add("playing"); v.play(); };
     play.addEventListener("click", start);
     mute.addEventListener("click", (e) => { e.stopPropagation(); start(); });
     v.addEventListener("click", () => { if (!v.controls) start(); });
@@ -2609,6 +2624,11 @@ function buildSettings() {
   $("#setStLevel").value = S.stLevel ?? 1; $("#stLevelTxt").textContent = ST_LEVELS[S.stLevel ?? 1][1];
   $("#setStHours").value = S.stHours || 12;
   $("#setTextOnly").setAttribute("aria-checked", textOnlyState());
+  const sav = S.saver || "auto";
+  document.querySelectorAll("#setSaver button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === sav));
+  $("#saverNow").textContent = saving() ? (S.saver === "on" ? "החיסכון פועל עכשיו." : "החיבור עכשיו מדוד, והחיסכון פועל.") : sav === "off" ? "" : "החיבור עכשיו לא מדוד. החיסכון לא פועל.";
+  document.querySelectorAll("[data-sv]").forEach((b) => b.setAttribute("aria-checked", !!(S[b.dataset.sv] ?? SV_DEF[b.dataset.sv])));
+  document.querySelectorAll("#setSvPoll button").forEach((b) => b.setAttribute("aria-pressed", +b.dataset.v === (S.svPoll ?? SV_DEF.svPoll)));
   const tl = $("#setTextOnlyList"); tl.replaceChildren();
   for (const s of enabled()) {
     const r = el("div", "row sub"), sw = el("button", "switch");
@@ -2806,11 +2826,28 @@ $("#setStLevel").addEventListener("input", (e) => { S.stLevel = +e.target.value;
 $("#setStLevel").addEventListener("change", () => stUpdate(true));
 $("#setStHours").addEventListener("change", (e) => { S.stHours = Math.min(48, Math.max(1, +e.target.value || 12)); saveSettings(); stUpdate(true); });
 $("#setMerge").addEventListener("click", () => { S.noMerge = !S.noMerge; saveSettings(); buildSettings(); redraw(); });
+// Data saver: on a metered connection (Windows says so: a SIM, a hotspot), or always. What it turns off is
+// up to the user (the switches under it); by default background work, videos until clicked, and the status.
+const SV_DEF = { svBg: true, svVid: true, svStatus: true, svPics: false, svPoll: 60 };
+let metered = false;
+const saving = () => S.saver === "on" || (S.saver !== "off" && metered);
+const sv = (k) => saving() && (S[k] ?? SV_DEF[k]);
+const meteredLoad = () => fetch("/winfeed/metered").then((r) => (r.ok ? r.text() : "0")).then((v) => {
+  const m = v.trim() === "1"; if (m === metered) return;
+  metered = m; redraw(); stUpdate(); if ($("#sheet").classList.contains("show")) buildSettings();
+}).catch(() => {});
+setInterval(meteredLoad, 60000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) meteredLoad(); });
+document.querySelectorAll("#setSaver button").forEach((b) => b.addEventListener("click", () => { S.saver = b.dataset.v; saveSettings(); buildSettings(); redraw(); stUpdate(); }));
+document.querySelectorAll("[data-sv]").forEach((b) => b.addEventListener("click", () => { const k = b.dataset.sv; S[k] = !(S[k] ?? SV_DEF[k]); saveSettings(); buildSettings(); redraw(); stUpdate(); }));
+document.querySelectorAll("#setSvPoll button").forEach((b) => b.addEventListener("click", () => { S.svPoll = +b.dataset.v; saveSettings(); buildSettings(); }));
+
 // Text only: all channels (true), none (false), or a list of channel ids (the arrow by the switch). A partly
 // on switch goes the way of the majority.
-const textOnly = (id) => S.textOnly === true || (Array.isArray(S.textOnly) && S.textOnly.includes(id));
+const textOnly = (id) => sv("svPics") || S.textOnly === true || (Array.isArray(S.textOnly) && S.textOnly.includes(id));
 function textOnlyState() {
-  const ids = enabled().map((s) => s.id), k = ids.filter(textOnly).length;
+  const own = (id) => S.textOnly === true || (Array.isArray(S.textOnly) && S.textOnly.includes(id));
+  const ids = enabled().map((s) => s.id), k = ids.filter(own).length;
   return S.textOnly === true || (k && k === ids.length) ? "true" : k ? "mixed" : "false";
 }
 function setTextOnly(ids) {
@@ -2926,7 +2963,7 @@ $("#setKeepItems").addEventListener("change", (e) => { S.keepItems = Math.max(0,
 $("#gear").addEventListener("click", () => { buildSettings(); $("#sheet").classList.add("show"); $("#setClose").focus(); });
 // Each tab can go back to its defaults: a second click confirms, and for a few seconds it can be undone.
 const RESET = {
-  display: ["status", "layout", "order", "font", "face", "date", "theme", "accent", "accentShade", "breaking", "reactions", "autoplay", "autoSound", "compact", "density", "tabCounts", "stRow"],
+  display: ["status", "layout", "order", "font", "face", "date", "theme", "accent", "accentShade", "breaking", "reactions", "autoplay", "autoSound", "compact", "density", "tabCounts", "stRow", "saver", "svBg", "svVid", "svStatus", "svPics", "svPoll"],
   feeds: ["tabOrder", "catOrder", "allEx", "allOff"],
   sources: ["on"],
   advanced: ["keepSec", "keepItems", "hideWords", "highlight", "mutes", "pollSec", "cuts", "quoteMode", "showAds", "brkSound", "noMerge", "textOnly", "stLevel", "stHours", "stAll", "stNoReact"],
@@ -3134,7 +3171,7 @@ function sendNotify(n, p) {
 }
 async function checkNotify() {
   const n = N();
-  if (n.via === "off") return;
+  if (n.via === "off" || (document.hidden && sv("svBg"))) return;
   const picked = enabled().map((s) => [s, chOf(n, s)]).filter(([, mode]) => mode);
   const fresh = [];
   await Promise.all(picked.map(async ([s, mode]) => {
@@ -3374,7 +3411,7 @@ async function wLoad(list, pages = 1, onPart) {
   }
   // The status widget: the newest popular statuses that have a picture (a video alone has none to show).
   if (list === "status") {
-    if (S.status === false) return [];
+    if (S.status === false || sv("svStatus")) return [];
     await stLoad();
     const muted = new Set((S.stMute || []).filter((x) => x.startsWith("src:")).map((x) => x.slice(4)));
     return ST.items.filter((it) => !muted.has(it.src) && norm(it).media.some((m) => m.kind === "image")).sort((a, b) => b.t - a.t).slice(0, 6);
@@ -3429,6 +3466,7 @@ async function wLoad(list, pages = 1, onPart) {
 }
 let wTicks = 0;
 async function widgetTick() {
+  if (document.hidden && sv("svBg")) return;
   // While the board is closed nobody sees a reload, so a deploy reaches the notifications and widgets at once.
   if (document.hidden && ++wTicks % 5 === 0) checkVersion();
   const need = await fetch("/winfeed/widgets/need").then((r) => (r.ok ? r.json() : null)).catch(() => null);
@@ -3740,7 +3778,7 @@ async function checkVersion() {
 const nearObserver = new IntersectionObserver((entries) => {
   for (const e of entries) {
     const v = e.target;
-    if (e.isIntersecting) { if (!v.getAttribute("src")) v.src = v.dataset.src; }
+    if (e.isIntersecting) { if (!v.getAttribute("src") && !sv("svVid")) v.src = v.dataset.src; }
     else if (v.getAttribute("src") && (v.paused || v.muted)) { v.pause(); v.removeAttribute("src"); v.load(); }
   }
 }, { root: $("#scroller"), rootMargin: "1600px 0px" });
@@ -4033,7 +4071,7 @@ function stTile(g, list) {
   return b;
 }
 function stRefresh() {
-  const on = S.status !== false;
+  const on = S.status !== false && !sv("svStatus");
   $("#statusBtn").hidden = !on;
   const feeds = on ? stFeeds().filter((g) => !stMuted(g)) : [];
   $(".st-dot").hidden = !feeds.some(unseenOf);
@@ -4042,7 +4080,7 @@ function stRefresh() {
   row.replaceChildren(...feeds.map((g) => stTile(g, feeds)));
   if (!$("#stScreen").hidden) stScreenDraw();
 }
-async function stUpdate(force) { if (S.status === false) return stRefresh(); await stLoad(force); stRefresh(); }
+async function stUpdate(force) { if (S.status === false || sv("svStatus")) return stRefresh(); await stLoad(force); stRefresh(); }
 setInterval(() => { if (!document.hidden) stUpdate(); }, 180000);
 setTimeout(() => stUpdate(), 4000);
 // The status screen: the feeds as tiles on top, then a row for each channel, like WhatsApp.
@@ -4428,12 +4466,13 @@ addEventListener("blur", () => document.querySelectorAll("video").forEach((v) =>
 new IntersectionObserver((e) => { if (e[0].isIntersecting) loadMore(); }, { root: scroller, rootMargin: "800px" }).observe($("#sentinel"));
 setInterval(() => document.querySelectorAll("#feed time[data-t]").forEach((t) => (t.textContent = ago(+t.dataset.t))), 30000);
 // ponytail: one self-scheduling timer, so a new refresh rate applies from the next round.
-function pollLoop() { if (!document.hidden) poll(); setTimeout(pollLoop, Math.max(10, +S.pollSec || POLL_MS / 1000) * 1000); }
+function pollLoop() { if (!document.hidden) poll(); setTimeout(pollLoop, Math.max(10, (sv("svPoll") || +S.pollSec || POLL_MS / 1000)) * 1000); }
 buildTabs();
 applyOrder();
 skeletons();
 // The tabs and the skeleton paint first; the network starts after that, so something moves at once.
 requestAnimationFrame(() => setTimeout(() => {
+  meteredLoad();
   pollLoop();
   checkVersion();
   refreshAuthenti();

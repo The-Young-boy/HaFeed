@@ -158,6 +158,10 @@ impl IFeedResourceProvider_Impl for Provider_Impl {
         if uri.contains("/winfeed/report") {
             return args.SetResponse(&respond(report().as_bytes(), "application/json", 200)?);
         }
+        // /winfeed/metered: 1 when Windows counts the connection as metered (a SIM, a hotspot): the page's data saver.
+        if uri.contains("/winfeed/metered") {
+            return args.SetResponse(&respond(if metered() { b"1" } else { b"0" }, "text/plain", 200)?);
+        }
         // /winfeed/accent: the Windows accent colour as #RRGGBB (the page's default accent).
         if uri.contains("/winfeed/accent") {
             return args.SetResponse(&respond(accent().as_bytes(), "text/plain", 200)?);
@@ -323,6 +327,15 @@ fn main() {
         let mut idx = 0u32;
         let _ = CoWaitForMultipleObjects(0, u32::MAX, 1, &ev, &mut idx);
     }
+}
+
+/// The internet connection costs money per byte (fixed or variable plan), roams, or is over its limit.
+fn metered() -> bool {
+    (|| -> windows_core::Result<bool> {
+        let c = NetworkInformation::GetInternetConnectionProfile()?.GetConnectionCost()?;
+        let t = c.NetworkCostType()?;
+        Ok(t == NetworkCostType::Fixed || t == NetworkCostType::Variable || c.Roaming()? || c.OverDataLimit()?)
+    })().unwrap_or(false)
 }
 
 /// HKCU\Software\Microsoft\Windows\DWM AccentColor, a DWORD in ABGR order.
