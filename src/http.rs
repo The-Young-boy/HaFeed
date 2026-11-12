@@ -244,3 +244,59 @@ mod tests {
         assert_eq!(query(q, "h").collect::<Vec<_>>(), ["A: 1", "B: 2"]);
     }
 }
+
+// The board waits on every resource answer (its window freezes meanwhile), so a GET through the proxy never
+// waits long on a site: the last answer comes back at once and a fresh one loads in the background.
+// ponytail: one global lock and a linear sweep; fine for the few hundred entries a feed makes.
+struct Slot { at: std::time::Instant, used: std::time::Instant, reply: Option<std::sync::Arc<Reply>>, busy: bool }
+static CACHE: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<String, Slot>>> = std::sync::LazyLock::new(Default::default);
+
+/// The answer for `key` (fresh within 250 ms, else the last one); None = the first load is still running.
+/// `load` runs on its own thread when the entry is missing or older than 5 seconds.
+pub fn cached(key: &str, load: impl FnOnce() -> Option<Reply> + Send + 'static) -> Option<std::sync::Arc<Reply>> {
+    use std::time::{Duration, Instant};
+    let start = Instant::now();
+    {
+        let mut c = CACHE.lock().unwrap();
+        c.retain(|_, s| s.busy || s.used.elapsed() < Duration::from_secs(300));
+        let s = c.entry(key.to_string()).or_insert(Slot { at: start, used: start, reply: None, busy: false });
+        s.used = start;
+        if !s.busy && (s.reply.is_none() || s.at.elapsed() > Duration::from_secs(5)) {
+            s.busy = true;
+            let key = key.to_string();
+            std::thread::spawn(move || {
+                let r = load();
+                let mut c = CACHE.lock().unwrap();
+                if let Some(s) = c.get_mut(&key) {
+                    s.busy = false;
+                    s.at = Instant::now();
+                    // A failed reload keeps the last good answer; a failed first load answers 502.
+                    match r {
+                        Some(r) => s.reply = Some(std::sync::Arc::new(r)),
+                        None if s.reply.is_none() => s.reply = Some(std::sync::Arc::new(Reply { status: 502, content_type: "text/plain".into(), body: b"fetch failed".to_vec(), set_cookies: vec![] })),
+                        None => {}
+                    }
+                }
+            });
+        }
+    }
+    loop {
+        let c = CACHE.lock().unwrap();
+        let s = c.get(key)?;
+        if !s.busy || start.elapsed() > Duration::from_millis(250) { return s.reply.clone(); }
+        drop(c);
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn cached_never_waits_long() {
+    let slow = || { std::thread::sleep(std::time::Duration::from_millis(600)); Some(Reply { status: 200, content_type: "t".into(), body: b"a".to_vec(), set_cookies: vec![] }) };
+    let t = std::time::Instant::now();
+    assert!(cached("k", slow).is_none()); // first load still running: pending
+    assert!(t.elapsed() < std::time::Duration::from_millis(400));
+    std::thread::sleep(std::time::Duration::from_millis(700));
+    assert_eq!(cached("k", || None).unwrap().body, b"a"); // loaded; fresh, so no reload
+    assert_eq!(cached("bad", || None).map(|r| r.status), Some(502)); // fast failure answers 502
+}

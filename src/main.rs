@@ -234,6 +234,19 @@ impl IFeedResourceProvider_Impl for Provider_Impl {
             if !matches!(method.as_str(), "GET" | "POST") {
                 return args.SetResponse(&respond(b"method", "text/plain", 405)?);
             }
+            if method == "GET" {
+                // From the cache (see http::cached): 425 = still loading the first time, the page asks again.
+                let h = host.to_string();
+                let got = http::cached(q, move || {
+                    let r = http::fetch("GET", &url, &headers, b"");
+                    if let (Some(r), None) = (&r, login::cookie_for(&h)) { login::keep_guest(&h, &r.set_cookies); }
+                    r
+                });
+                return match got {
+                    Some(r) => args.SetResponse(&respond(&r.body, &r.content_type, r.status as i32)?),
+                    None => args.SetResponse(&respond(b"pending", "text/plain", 425)?),
+                };
+            }
             let reply = http::fetch(&method, &url, &headers, body.as_bytes());
             if let (Some(r), None) = (&reply, login::cookie_for(host)) {
                 login::keep_guest(host, &r.set_cookies);
