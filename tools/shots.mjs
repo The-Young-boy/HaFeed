@@ -58,4 +58,17 @@ await shot("set-advanced", { prep: tab("about") + ` await new Promise(r => setTi
 await shot("wizard", { prep: `openWizard(0);` });
 await shot("wizard-sources", { prep: `openWizard(1);` });
 await shot("wizard-look", { dark: true, prep: `openWizard(3);` });
+// Status, pictures, articles, the wide settings.
+const status = `await stUpdate(true); await new Promise(r => setTimeout(r, 2500));`;
+const picStatus = status + ` const fs = stFeeds(); stOpen(fs, 0); const i = fs[0].items.findIndex((it) => norm(it).media[0]?.kind === "image" && norm(it).title); if (i >= 0) { SV.ii = i; stShow(); } stPause(true); await new Promise(r => setTimeout(r, 2500));`;
+await shot("feed-status", { prep: status });
+await shot("status-view", { prep: picStatus });
+await shot("status-screen", { dark: true, prep: status + ` document.querySelector("#statusBtn").click(); await new Promise(r => setTimeout(r, 1500));` });
+await shot("feed-pictures", { prep: `document.querySelector("#galleryBtn").click(); await new Promise(r => setTimeout(r, 5000));` });
+await shot("picture-text", { dark: true, prep: `const img = [...document.querySelectorAll("#feed .post .media img")].find((x) => (norm(x.closest(".post")._item).body || "").length > 120); img.click(); await new Promise(r => setTimeout(r, 2500));` });
+await shot("article-read", { prep: `const a = ARTICLE_SITES.find((x) => x.id === "kolbarama"), x = (await loadArticles(a))[0]; readArticle({ src: "art-kolbarama", id: 1, t: x.t, url: x.url, norm: { title: x.title, body: x.sub, media: x.img ? [{ kind: "image", url: x.img }] : [] } }); await new Promise(r => setTimeout(r, 6000));` });
+await shot("feed-saved", { prep: `[...document.querySelectorAll("#feed > .post")].filter((p) => norm(p._item).media.length).slice(0, 3).forEach((p) => toggleSaved(p._item)); document.querySelector("#savedBtn").click(); await new Promise(r => setTimeout(r, 2500));` });
+await shot("feed-also", { prep: `S.status = false; stRefresh(); for (let i = 0; i < 4 && !document.querySelector("#feed .also"); i++) { await loadMore(); await new Promise(r => setTimeout(r, 400)); } document.querySelector("#feed .also")?.closest(".post").scrollIntoView({ block: "center" }); await new Promise(r => setTimeout(r, 1500));` });
+await shot("set-wide", { w: 1200, h: 1000, prep: tab("display") });
+await shot("set-search", { w: 1200, h: 800, dark: true, prep: `document.querySelector('[aria-label="הגדרות"]').click(); await new Promise(r => setTimeout(r, 400)); const s = document.querySelector("#setSearch"); s.value = "צליל"; s.dispatchEvent(new Event("input"));` });
 ws.close(); edge.kill();

@@ -1867,7 +1867,7 @@ function openTab(t) {
   if (inSaved) {
     tab = t; stream = newStream([]); seen = new Set(); pending = []; loading = false;
     $("#pill").classList.remove("show");
-    buildTabs(); showSaved(); scroller.scrollTop = 0;
+    buildTabs(); showSaved(); stRefresh(); scroller.scrollTop = 0;
     return;
   }
   if (was) buildTabs();
@@ -3632,7 +3632,7 @@ function showPics() {
   $("#pill").classList.remove("show"); $("#empty").hidden = true;
   const grid = el("div", "gallery");
   $("#feed").replaceChildren(grid);
-  buildTabs(); picsAdd(items); scroller.scrollTop = 0;
+  buildTabs(); stRefresh(); picsAdd(items); scroller.scrollTop = 0;
 }
 function picsAdd(items) {
   const grid = $("#feed .gallery");
@@ -3779,7 +3779,9 @@ function waWhen(t) {
   return `${fmtDate.format(t)}, ${hm}`;
 }
 function stTile(g, list) {
-  const last = g.items.at(-1), m = norm(last).media.find((x) => x.kind === "image") || norm(last).media.find((x) => x.kind === "video");
+  // The newest picture of the group (a video shows only when there is no picture at all).
+  const pic = [...g.items].reverse().map((it) => norm(it).media.find((x) => x.kind === "image")).find(Boolean);
+  const m = pic || norm(g.items.at(-1)).media.find((x) => x.kind === "video");
   const b = el("button", "st-tile" + (unseenOf(g) ? "" : " seen"));
   if (m?.kind === "image") { const i = el("img"); i.src = m.url; i.alt = ""; i.loading = "lazy"; b.append(i); }
   else { const v = el("div", "pv"); if (m?.poster) v.style.background = `center / cover url("${m.poster}")`; else v.textContent = "▶"; b.append(v); }
