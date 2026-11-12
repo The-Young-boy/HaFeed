@@ -22,6 +22,7 @@ static WIDGETS: Mutex<BTreeMap<String, W>> = Mutex::new(BTreeMap::new());
 static DATA: Mutex<Option<Value>> = Mutex::new(None);
 static REFRESH: AtomicBool = AtomicBool::new(false);
 static TURN: AtomicUsize = AtomicUsize::new(0);
+static FRAME: AtomicUsize = AtomicUsize::new(0);
 static GOTO: Mutex<String> = Mutex::new(String::new());
 // Pictures the page prepared (data URLs: the board draws no WEBP or SVG, and some sites refuse it). Items name them "img:<key>". Only the ones the current lists use are kept.
 static IMGS: Mutex<BTreeMap<String, String>> = Mutex::new(BTreeMap::new());
@@ -68,6 +69,8 @@ pub fn push(body: &str) {
     if let Some(l) = new.get("lists").and_then(Value::as_object) {
         for (k, v) in l { all["lists"][k] = v.clone(); }
     }
+    // The lists the page is still looking deeper into (a search: first results, then more).
+    if let Some(b) = new.get("busy") { all["busy"] = b.clone(); }
     let used = all.to_string();
     {
         let mut m = IMGS.lock().unwrap();
@@ -210,7 +213,7 @@ pub fn render(w: &W) -> String {
     }
     let list_id = list_of(w);
     let list = items(&list_id, 8);
-    if w.kind == "search" { return search_card(w, &list, data()["lists"].get(&list_id).is_some()); }
+    if w.kind == "search" { return search_card(w, &list, data()["lists"].get(&list_id).is_some(), searching(w)); }
     // The channel widget is titled with what it shows (the board draws the title row).
     let head = if w.kind == "channel" { json!(choice_name(&w.pick)) } else { Value::Null };
     if list.is_empty() {
@@ -272,11 +275,31 @@ pub fn render(w: &W) -> String {
 
 /// The search widget: a box with a search button, then what was found (the board draws no keyboard
 /// focus tricks; Enter in the box also searches).
-fn search_card(w: &W, list: &[Value], loaded: bool) -> String {
+/// A search the page has not finished: nothing came back yet, or the first results and more on the way.
+fn searching(w: &W) -> bool {
+    let (id, d) = (list_of(w), data());
+    w.pick != "search:" && (d["lists"].get(&id).is_none() || d["busy"].as_array().is_some_and(|b| b.iter().any(|x| x == &json!(id))))
+}
+/// A line of 12 parts with a 3-part piece that runs back and forth (the card is redrawn every 300 ms while searching).
+fn runner() -> Value {
+    let f = FRAME.load(Ordering::Relaxed) % 18;
+    let at = if f > 9 { 18 - f } else { f };
+    // Text, not coloured boxes: the board draws no empty box.
+    let runs: Vec<Value> = (0..12).map(|i| if (at..at + 3).contains(&i) { json!({ "type": "TextRun", "text": "━", "color": "Accent", "weight": "Bolder" }) }
+        else { json!({ "type": "TextRun", "text": "━", "isSubtle": true }) }).collect();
+    json!({ "type": "RichTextBlock", "inlines": runs, "horizontalAlignment": "Center", "spacing": "Medium" })
+}
+fn search_card(w: &W, list: &[Value], loaded: bool, busy: bool) -> String {
     let q = w.pick.strip_prefix("search:").unwrap_or("");
     let mut body = vec![json!({ "type": "Input.Text", "id": "q", "value": q, "placeholder": "מילה לחיפוש בכל הערוצים",
         "inlineAction": { "type": "Action.Execute", "verb": "search", "title": "חיפוש" } })];
     let take = match w.size { WidgetSize::Small => 0, WidgetSize::Medium => 2, _ => 4 };
+    if busy {
+        body.push(runner());
+        if list.is_empty() {
+            body.push(json!({ "type": "TextBlock", "text": "מחפש בכל הערוצים הדלוקים ובאתרים...", "wrap": true, "isSubtle": true, "size": "Small", "horizontalAlignment": "Center", "spacing": "Small" }));
+        }
+    }
     if q.is_empty() {
         // Nothing asked yet: what is hot now, so the widget is not empty.
         let hot = items("popular", take);
@@ -285,13 +308,28 @@ fn search_card(w: &W, list: &[Value], loaded: bool) -> String {
             body.extend(hot.iter().map(|it| row("search", it, 2)));
         } else if w.size != WidgetSize::Small { body.extend(empty("חיפוש בידיעות האחרונות של הערוצים הדלוקים.").as_array().cloned().unwrap_or_default()); }
     } else if list.is_empty() {
-        body.extend(empty(if loaded { "לא נמצאו ידיעות." } else { "מחפש..." }).as_array().cloned().unwrap_or_default());
+        if !busy { body.extend(empty(if loaded { "לא נמצאו ידיעות." } else { "מחפש..." }).as_array().cloned().unwrap_or_default()); }
     } else if take == 0 {
         body.push(json!({ "type": "TextBlock", "text": format!("נמצאו {} ידיעות. הגדילו את הווידג'ט כדי לראות אותן.", list.len()), "wrap": true, "isSubtle": true, "spacing": "Small" }));
     } else {
         body.extend(list.iter().take(take).map(|it| row("search", it, 2)));
     }
     card(Value::Array(body), json!([]), Value::Null)
+}
+
+/// Redraws a searching widget every 300 ms (the moving bar) until the page has finished, at most two minutes.
+fn spin(id: String) {
+    std::thread::spawn(move || {
+        let _ = unsafe { crate::CoInitializeEx(core::ptr::null(), 0) };
+        for _ in 0..400 {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            FRAME.fetch_add(1, Ordering::Relaxed);
+            let w = WIDGETS.lock().unwrap();
+            let Some(x) = w.get(&id) else { return };
+            send(&id, x);
+            if !searching(x) || !x.active { return; }
+        }
+    });
 }
 
 fn send(id: &str, w: &W) {
@@ -378,8 +416,9 @@ impl IWidgetProvider_Impl for Provider_Impl {
             "refresh" => REFRESH.store(true, Ordering::Relaxed),
             "search" => {
                 let q: String = input["q"].as_str().unwrap_or("").trim().chars().take(60).collect();
+                // Only this list: a refresh of every list would make the search wait for all the others.
                 x.pick = format!("search:{q}");
-                REFRESH.store(true, Ordering::Relaxed);
+                if !q.is_empty() { spin(id.clone()); }
             }
             // The feed is another page of the board; the page jumps to the item when it shows (see feed.html).
             "open" => { if let Some(k) = input["key"].as_str() { *GOTO.lock().unwrap() = k.to_string(); } return Ok(()); }

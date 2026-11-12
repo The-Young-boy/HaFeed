@@ -2633,7 +2633,7 @@ const wItem = (it) => {
   const n = it.catName ? `${it.catName} · ${s.name}` : it.popular ? `${s.name} · ${it.popular} תגובות` : s.name;
   return { key: keyOf(it), n, logo: "", t: it.t || 0, title: text, sub, line, img: m.media.find((x) => x.kind === "image")?.url || "", url: linkOf(it), brk: !!it.breaking };
 };
-async function wLoad(list, pages = 1) {
+async function wLoad(list, pages = 1, onPart) {
   if (list === "breaking") {
     const items = await ADAPTERS.chat.breaking(byId("hagizra")).catch(() => []);
     return items.sort((a, b) => b.t - a.t).slice(0, 6);
@@ -2671,11 +2671,25 @@ async function wLoad(list, pages = 1) {
   if (list.startsWith("search:")) {
     const q = list.slice(7).trim();
     if (!q) return [];
-    const words = q.split(/\s+/);
-    const arts = (await Promise.all(ARTICLE_SITES.map((a) => loadArticles(a).then((l) => l.map((x) => ({ ...x, n: a.name, site: a })), () => [])))).flat();
-    const hit = (t) => words.every((w) => t.includes(w));
-    return [...(await recent(3)).filter((it) => { const m = norm(it); return hit(`${m.title} ${m.body}`); }), ...arts.filter((x) => hit(`${x.title} ${x.sub}`))]
-      .sort((a, b) => b.t - a.t).slice(0, 6);
+    const words = q.split(/\s+/), hit = (t) => words.every((w) => t.includes(w)), found = [];
+    const best = () => [...found].sort((a, b) => b.t - a.t).slice(0, 6);
+    // Every site and channel on its own, all at once (3 pages deep): what one finds shows at once (onPart),
+    // not when the slowest one answers.
+    await Promise.all([
+      ...ARTICLE_SITES.map((a) => loadArticles(a).then((l) => {
+        found.push(...l.map((x) => ({ ...x, n: a.name, site: a })).filter((x) => hit(`${x.title} ${x.sub}`))); onPart?.(best());
+      }, () => {})),
+      ...enabled().filter((s) => s.cat !== "articles").map(async (s) => {
+        let cur;
+        for (let i = 0; i < 3; i++) {
+          const r = await ADAPTERS[s.kind].page(s, cur).catch(() => null);
+          if (!r) break;
+          found.push(...r.items.filter(visible).filter((it) => { const m = norm(it); return hit(`${m.title} ${m.body}`); })); onPart?.(best());
+          cur = r.next; if (!cur) break;
+        }
+      }),
+    ]);
+    return best();
   }
   if (list.startsWith("top:")) {
     const all = await wLoad(list.slice(4), 3);
@@ -2697,26 +2711,27 @@ async function wLoad(list, pages = 1) {
   const got = await Promise.all(srcs.map(pageOf));
   return got.flat().filter(visible).sort((a, b) => b.t - a.t).slice(0, pages > 1 ? 40 : 8);
 }
+let wTicks = 0;
 async function widgetTick() {
   // While the board is closed nobody sees a reload, so a deploy reaches the notifications and widgets at once.
-  if (document.hidden) checkVersion();
+  if (document.hidden && ++wTicks % 5 === 0) checkVersion();
   const need = await fetch("/winfeed/widgets/need").then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (need?.goto) { wGoto = need.goto; if (!document.hidden) wJump(); }
   if (!need || !need.lists.length) return;
   const lists = {};
-  for (const list of need.lists) {
-    if (!need.refresh && Date.now() - (W_LISTS[list] || 0) < 180000) continue;
-    W_LISTS[list] = Date.now();
-    const raw = await wLoad(list);
-    // Articles come ready (title, picture, link); channel items go through wItem.
-    const got = raw.map((it) => [it, it.site ? { key: "", n: it.n, logo: "", t: it.t, title: it.title, sub: it.sub, line: "", img: it.img, url: it.url, brk: false } : wItem(it)]);
-    // Logos for all; pictures for the first five (the lead item, and the headline's turns).
-    await Promise.all(got.map(async ([it, w], i) => {
-      w.logo = await wImg(it.site ? siteLogo(it.site) : byId(it.src).logo, 48, true);
-      w.img = i < (list.startsWith("top:") ? 12 : 5) ? await wImg(w.img, 420, false) : "";
-    }));
-    lists[list] = got.map(([, w]) => w);
+  // All the lists at the same time: a new search does not wait for the others.
+  const due = need.lists.filter((list) => need.refresh || Date.now() - (W_LISTS[list] || 0) >= 180000);
+  for (const list of due) W_LISTS[list] = Date.now();
+  // A search shows what it has found so far (at most every 400 ms) while the widget runs its bar; then all of it.
+  for (const list of due.filter((l) => l.startsWith("search:"))) {
+    let chain = Promise.resolve(), timer = 0, done = false, part = null;
+    const send = (items, busy) => (chain = chain.then(() => fetch("/winfeed/widgets/push?d=" + encodeURIComponent(JSON.stringify({ lists: { [list]: items }, busy }))).catch(() => {})));
+    wReady(list, 1, (items) => {
+      part = items;
+      if (!timer) timer = setTimeout(() => { timer = 0; if (!done) send(part, [list]); }, 400);
+    }).then((all) => { done = true; clearTimeout(timer); send(all, []); });
   }
+  await Promise.all(due.filter((l) => !l.startsWith("search:")).map(async (list) => { lists[list] = await wReady(list); }));
   const choices = [
     ...tabOrder().filter((id) => id === "all" || tabSources(id).length).map((id) => ({ id: "tab:" + id, name: tabName(id) })),
     ...enabled().map((s) => ({ id: "src:" + s.id, name: s.name })),
@@ -2725,6 +2740,20 @@ async function widgetTick() {
   if (!Object.keys(lists).length && W_LISTS._choices === JSON.stringify(choices)) return;
   W_LISTS._choices = JSON.stringify(choices);
   await fetch("/winfeed/widgets/push?d=" + encodeURIComponent(JSON.stringify({ choices, choicesTop, lists }))).catch(() => {});
+}
+// One list, ready for the provider: articles come ready (title, picture, link); channel items go through wItem.
+// Logos for all; pictures for the first five (the lead item, and the headline's turns).
+async function wReady(list, pages, onPart) {
+  const raw = await wLoad(list, pages, onPart && (async (part) => onPart(await wPrep(list, part))));
+  return wPrep(list, raw);
+}
+async function wPrep(list, raw) {
+  const got = raw.map((it) => [it, it.site ? { key: "", n: it.n, logo: "", t: it.t, title: it.title, sub: it.sub, line: "", img: it.img, url: it.url, brk: false } : wItem(it)]);
+  await Promise.all(got.map(async ([it, w], i) => {
+    w.logo = await wImg(it.site ? siteLogo(it.site) : byId(it.src).logo, 48, true);
+    w.img = i < (list.startsWith("top:") ? 12 : 5) ? await wImg(w.img, 420, false) : "";
+  }));
+  return got.map(([, w]) => w);
 }
 // A click on the headline widget: the feed jumps to that item the moment it shows.
 let wGoto = "";
@@ -2735,7 +2764,8 @@ function wJump() {
   goTo({ src, id: /^\d+$/.test(id) ? +id : id });
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden) fetch("/winfeed/widgets/need").then((r) => r.json()).then((n) => { if (n.goto) wGoto = n.goto; wJump(); }).catch(() => {}); });
-setInterval(widgetTick, 5000);
+// Every second: a search typed in the widget starts at once (asking is local and cheap).
+setInterval(widgetTick, 1000);
 setTimeout(widgetTick, 3000);
 
 // ---------- reactions ----------
