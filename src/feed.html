@@ -153,6 +153,7 @@ a:hover { text-decoration: underline; }
 .meta b { color: var(--text); font-weight: 700; }
 .meta .verified { width: 18px; height: 18px; color: var(--accent); flex: none; }
 .meta time { white-space: nowrap; }
+.meta .author { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meta time:hover { text-decoration: underline; }
 .tag {
   margin-inline-start: 6px; padding: 1px 8px; border-radius: 999px;
@@ -343,7 +344,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .sheet.show { opacity: 1; pointer-events: auto; }
 .sheet .panel { width: min(920px, 100%); margin: 24px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,.35); translate: 0 12px; transition: translate .25s cubic-bezier(.2,.8,.2,1); }
 .sheet.show .panel { translate: 0 0; }
-.panel header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); border-radius: 18px 18px 0 0; }
+.panel header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; background: var(--bg); border-radius: 18px 18px 0 0; }
 .panel header h2 { margin: 0; font-size: 19px; font-weight: 800; }
 .panel section { padding: 14px 20px 18px; border-bottom: 1px solid var(--line); }
 .panel section:last-child { border-bottom: 0; }
@@ -605,6 +606,7 @@ label.chip { cursor: pointer; }
 .via { margin-top: 6px; border: 1px solid var(--line); border-radius: 12px; padding: 0 12px; }
 .via summary { display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; list-style: none; }
 .via summary::-webkit-details-marker { display: none; }
+.via summary > span { flex: 1; min-width: 0; }
 .via summary::after { content: "›"; margin-inline-start: auto; color: var(--muted); font-size: 20px; rotate: 90deg; transition: rotate .2s; }
 .via[open] summary::after { rotate: -90deg; }
 .via summary img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
@@ -1180,6 +1182,9 @@ const CAT_NAME = Object.fromEntries(CATS);
 // kind "chat" = the channel platform hagizra.news runs on. Two builds: "thechats" (bare array, offset = older than id)
 // and "chatfree" ({messages}, offset is inclusive). login: the channel requires a Google sign-in to read.
 // on: part of the first-run default (one per category).
+const EMESS_FEEDS = [[1, "אונליין", "news"], [2, "חרדים", "news"], [15, "עדכוני איחוד הצלה", "news"], [5, "מעניין", "news"], [12, "רכב", "news"],
+  [3, "תורה", "torah"], [13, "חידון ההלכה", "torah"], [4, "מיוזיק", "music"], [11, "הקול החדש", "music"], [7, "כלכלה", "economy"],
+  [10, "תמונת היום", "fun"]];
 const SOURCES = [
   { id: "hagizra", name: "הגזרה", cat: "news", kind: "chat", base: "https://hagizra.news", direct: true, on: true,
     logo: "https://stream.hagizra.news/2372e00f8639/STK-20260605-WA0078.webp" },
@@ -1189,7 +1194,10 @@ const SOURCES = [
     logo: "https://channel.hamashbak.co.il/assets/favicon.ico" },
   { id: "pargod", name: "התדר", note: "עדכונים מסוננים מקבוצת הפרגוד", cat: "news", kind: "hateder", base: "https://hateder.net", slug: "pargod",
     logo: "https://media.hateder.net/image/2026/09/9835538f344117f051b0fc94.JPG" },
-  { id: "emess", name: "אמס אונליין", cat: "news", kind: "emess", base: "https://www.emess.co.il", logo: "https://www.emess.co.il/logo.svg" },
+  // Emess: a source per channel of its app (the API's feed number), each in the category its posts belong to
+  // (checked 13.11 on the last 100 posts of each). In Sources they sit in one group, with a switch for all of Emess.
+  ...EMESS_FEEDS.map(([feed, name, cat]) => ({ id: "emess:" + feed, name: "אמס " + name, cat, kind: "emess", feed, via: "emess",
+    base: "https://www.emess.co.il", logo: "https://www.emess.co.il/logo.svg" })),
   { id: "hmnews", name: "מבזקי המחדש", cat: "news", kind: "hmnews", base: "https://hm-news.co.il",
     logo: "https://hm-news.co.il/wp-content/uploads/2026/06/cropped-hm-icon-1.png" },
   { id: "kore", name: "כל רגע", note: "עדכונים שוטפים, שורה אחת כל עדכון", cat: "news", kind: "kore", base: "https://www.kore.co.il",
@@ -1264,7 +1272,7 @@ async function refreshAuthenti() {
     addAuthenti(names);
   } catch (e) { console.warn(e); }
 }
-const byId = (id) => SOURCES.find((s) => s.id === id);
+const byId = (id) => SOURCES.find((s) => s.id === id) || (id.startsWith("emess") ? SOURCES.find((s) => s.id === "emess:1") : undefined);   // "emess" (one source before 0.3.118) or a dropped channel
 
 // The provider answers 425 while it loads a site for the first time (the board must never wait on a site): ask again soon.
 async function pfetch(url, opt) {
@@ -1363,20 +1371,22 @@ const ADAPTERS = {
   // Videos come as HLS (master.m3u8), which the board cannot play; the same file is served as plain MP4.
   emess: {
     async page(src, page) {
-      const data = await get(src, `${src.base}/Online/Feed/0${page ? `?page=${page}` : ""}`);
+      const data = await get(src, `${src.base}/Online/Feed/${src.feed}${page ? `?page=${page}` : ""}`);
+      const raw = (data.feed || []).filter((m) => m.feed === src.feed);
       const pic = (id) => `https://kcm.fm/upload/pictures/${Math.floor(id / 1000)}/${id}.jpg`;
-      const items = (data.feed || []).map((m) => {
+      const items = raw.map((m) => {
         const media = m.type === 2 && m.image ? [{ kind: "image", url: pic(m.image), size: m.w && m.h ? [m.w, m.h] : null }]
           : m.type === 3 && m.video ? [{ kind: "video", url: emessMp4(m.video), poster: m.image ? pic(m.image) : null, size: m.w && m.h ? [m.w, m.h] : null }] : [];
         const r = m.rank || {}, emo = { 1: "👍", 2: "👎", 3: "😄", 4: "😢" };
         const reactions = Object.fromEntries(Object.entries(r).filter(([, n]) => n > 0).map(([k, n]) => [emo[k] || k, n]));
         const body = (m.content || "").replace(/\r/g, "").replace(/_([^_\n]+)_/g, "$1");
-        return { src: src.id, id: m.id, feed: m.feed, t: ilTime(m.date), norm: { title: "", body: body.trim(), media }, reactions,
+        return { src: src.id, id: m.id, feed: m.feed, t: ilTime(m.date), norm: { title: "", body: body.trim(), media }, reactions, author: (m.user_name || "").trim(),
                  gone: m.visible === 0 || (!body.trim() && !media.length), ad: false };
       });
-      // Page 0 can open with an old featured post (home=1); it would land out of order in the merged stream.
-      const day2 = Date.now() - 2 * 864e5;
-      return { items: page ? items : items.filter((x, i) => !(data.feed[i].home == 1 && x.t < day2)), next: items.length ? (page || 0) + 1 : 0 };
+      // Page 0 can open with an old pinned post, before the newest: it would land out of order in the merged stream.
+      // (Every post on a channel's page is marked home=1, so that flag says nothing.)
+      const list = page ? items : items.filter((x, i) => !(i === 0 && items[1] && x.t < items[1].t));
+      return { items: list, next: (data.feed || []).length ? (page || 0) + 1 : 0 };
     },
   },
 
@@ -1484,6 +1494,13 @@ const DEFAULTS = { on: null, layout: "column", order: "top", keepSec: 30, keepIt
 let S = (() => { try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(SET_KEY) || "{}") }; } catch { return { ...DEFAULTS }; } })();
 if (S.layout === "two") S.layout = "column"; // the two-column layout was dropped
 if (!Array.isArray(S.on)) S.on = SOURCES.filter((s) => s.on).map((s) => s.id);
+// Emess was one source until 0.3.118: whoever had it on gets all its channels (the same posts as before).
+{
+  const all = EMESS_FEEDS.map(([f]) => "emess:" + f), swap = (ids) => (ids.includes("emess") ? [...ids.filter((x) => x !== "emess"), ...all] : ids);
+  S.on = swap(S.on);
+  for (const f of S.feeds || []) f.srcs = swap(f.srcs || []);
+  if (S.notify?.ch?.emess) { for (const id of all) S.notify.ch[id] = S.notify.ch.emess; delete S.notify.ch.emess; }
+}
 const saveSettings = () => { try { localStorage.setItem(SET_KEY, JSON.stringify(S)); } catch {} };
 const enabled = () => SOURCES.filter((s) => S.on.includes(s.id) && !(s.login && !signedIn(s)));
 // A custom feed ("feed:<n>") lists its own sources, whether or not they are on in the main feed.
@@ -1615,7 +1632,7 @@ if (!S.cutsSeeded) { S.cuts = [...KNOWN_CUTS, ...(S.cuts || [])]; S.cutsSeeded =
 // A line a cut touched goes if only a link or symbols are left; then a separator left at the end goes too.
 const leftover = (l) => !l.replace(/https?:\/\/\S+/g, "").replace(/[^\p{L}\p{N}]+/gu, "");
 function applyCuts(srcId, n) {
-  const rules = (S.cuts || []).filter((r) => r.text && (r.src === "*" || r.src === srcId));
+  const rules = (S.cuts || []).filter((r) => r.text && (r.src === "*" || r.src === srcId || (r.src === "emess" && srcId.startsWith("emess:"))));
   if (!rules.length) return n;
   const cut = (s) => {
     const lines = String(s || "").split("\n").flatMap((l) => {
@@ -1820,6 +1837,7 @@ function render(it, fresh) {
   const meta = el("div", "meta");
   const name = el("a", "src-name", src.name); name.href = linkOf(it); name.title = "פתיחת הידיעה בדפדפן";
   meta.append(name, el("span", null, "·"));
+  if (it.author) { const a = el("span", "author", it.author); a.title = "הכתב"; meta.append(a, el("span", null, "·")); }
   const time = el("time", null, ago(t)); time.dateTime = new Date(t).toISOString(); time.title = fullDate(t); time.dataset.t = t;
   meta.append(time);
   if (EDITS.has(keyOf(it))) {
@@ -2463,14 +2481,16 @@ function sourcesPicker(box, only = () => true, sortable = false, toggleOnly = fa
   box.replaceChildren(); counters.length = 0;
   for (const [c, name] of orderedCats()) {
     const own = SOURCES.filter((s) => s.cat === c && !s.via && only(s)), via = SOURCES.filter((s) => s.cat === c && s.via === "authenti" && only(s));
-    if (!own.length && !via.length) continue;
+    const ems = c === "news" ? SOURCES.filter((s) => s.via === "emess" && only(s)) : [];
+    if (!own.length && !via.length && !ems.length) continue;
     const cat = el("div", "cat"), head = el("div", null, name), count = el("small");
     cat.dataset.cat = c;
     if (sortable) head.prepend(catGrip(box, cat));
-    const all = [...own, ...via];
+    const all = [...own, ...via, ...ems.filter((s) => s.cat === c)];
     counters.push(() => { const n = all.filter((s) => S.on.includes(s.id)).length; count.textContent = n === 1 ? "אחד דלוק" : n ? `${n} דלוקים` : ""; });
     head.append(count); cat.append(head);
     for (const s of own) cat.append(sourceRow(s, toggleOnly));
+    if (ems.length) cat.append(emessGroup(ems, toggleOnly));
     if (via.length) {
       const grp = el("details", "via"), sum = el("summary");
       const img = avatar({ id: "authenti", name: "אותנטי ניוז", logo: AUTHENTI.logo });
@@ -2482,6 +2502,26 @@ function sourcesPicker(box, only = () => true, sortable = false, toggleOnly = fa
     box.append(cat);
   }
   countAll();
+}
+// Emess's channels in one folding group; the switch in its header turns all of them on or off (partly on: half).
+function emessGroup(ems, toggleOnly) {
+  const grp = el("details", "via"), sum = el("summary"), t = el("span", null, "אמס");
+  t.append(el("small", null, `${ems.length} ערוצים, כל אחד בקטגוריה שלו`));
+  const sw = el("button", "switch"); sw.setAttribute("role", "switch"); sw.setAttribute("aria-label", "כל אמס");
+  const rows = ems.map((s) => { const r = sourceRow(s, toggleOnly); r.querySelector("span")?.append(el("small", null, CAT_NAME[s.cat] || "")); return r; });
+  const state = () => { const k = ems.filter((s) => S.on.includes(s.id)).length; sw.setAttribute("aria-checked", k === ems.length ? "true" : k ? "mixed" : "false"); };
+  sw.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const on = !ems.every((s) => S.on.includes(s.id)), ids = ems.map((s) => s.id);
+    S.on = on ? [...new Set([...S.on, ...ids])] : S.on.filter((x) => !ids.includes(x));
+    rows.forEach((r) => r.querySelector(".switch:not(.google)")?.setAttribute("aria-checked", on));
+    saveSettings(); dirty = true; countAll(); state();
+  });
+  grp.addEventListener("click", (e) => { if (e.target.closest(".row .switch")) setTimeout(state); });
+  sum.append(avatar({ id: "emess", name: "אמס", logo: "https://www.emess.co.il/logo.svg" }), t, sw);
+  grp.append(sum, ...rows);
+  state();
+  return grp;
 }
 // Drag a row by its grip: categories (their sources fold away while dragging) and custom feeds.
 // opts.sel = the sibling rows, opts.end = an element that must stay last, opts.done = save the new order.
