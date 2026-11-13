@@ -607,6 +607,7 @@ label.chip { cursor: pointer; }
 .via summary { display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; list-style: none; }
 .via summary::-webkit-details-marker { display: none; }
 .via summary > span { flex: 1; min-width: 0; }
+.via .row.aside > span, .via .row.aside > .avatar { opacity: .45; }
 .via summary::after { content: "›"; margin-inline-start: auto; color: var(--muted); font-size: 20px; rotate: 90deg; transition: rotate .2s; }
 .via[open] summary::after { rotate: -90deg; }
 .via summary img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
@@ -923,7 +924,7 @@ button.react:hover { border-color: var(--accent); }
       <div class="hint" id="saverNow"></div>
       <div class="hint">בזמן חיסכון:</div>
       <div class="row sub"><span>בלי עבודה ברקע<small>כשהלוח סגור: אין התראות, והווידג'טים לא מתעדכנים</small></span><button class="switch" role="switch" data-sv="svBg" aria-label="בלי עבודה ברקע"></button></div>
-      <div class="row sub"><span>סרטונים רק בלחיצה<small>הסרטון לא נטען בכלל עד שלוחצים עליו</small></span><button class="switch" role="switch" data-sv="svVid" aria-label="סרטונים רק בלחיצה"></button></div>
+      <div class="row sub"><span>סרטונים רק בלחיצה<small>נטען רק פריים אחד לתצוגה. הסרטון עצמו נטען כשלוחצים עליו</small></span><button class="switch" role="switch" data-sv="svVid" aria-label="סרטונים רק בלחיצה"></button></div>
       <div class="row sub"><span>בלי סטטוס<small>הסטטוס טוען תמונות מכל הערוצים</small></span><button class="switch" role="switch" data-sv="svStatus" aria-label="בלי סטטוס"></button></div>
       <div class="row sub"><span>בלי תמונות<small>כמו "טקסט בלבד": תמונה נטענת רק בלחיצה</small></span><button class="switch" role="switch" data-sv="svPics" aria-label="בלי תמונות"></button></div>
       <div class="row sub"><span>בדיקה אם יש חדש</span><div class="tri" id="setSvPoll"><button data-v="0">רגיל</button><button data-v="60">כל דקה</button><button data-v="300">כל 5 דקות</button></div></div>
@@ -1284,9 +1285,12 @@ async function pfetch(url, opt) {
 }
 
 // Same-origin sources go straight to the network; the rest through the provider (the page cannot read other sites).
+// Only a plain guest GET goes straight: the sign-in cookie is in the provider, not in the board's browser,
+// and the straight call sends no method, body or headers.
 async function get(src, url, opt = {}) {
   let target = url;
-  if (src.direct && location.host === new URL(src.base).host) target = url.replace(src.base, "");   // same site only (not the dev copy's address)
+  const plain = !opt.method && opt.body == null && !opt.headers && !signedIn(src);
+  if (plain && src.direct && location.host === new URL(src.base).host) target = url.replace(src.base, "");   // same site only (not the dev copy's address)
   else {
     const q = new URLSearchParams({ u: url });
     if (opt.method) q.set("m", opt.method);
@@ -1502,9 +1506,11 @@ if (!Array.isArray(S.on)) S.on = SOURCES.filter((s) => s.on).map((s) => s.id);
   if (S.notify?.ch?.emess) { for (const id of all) S.notify.ch[id] = S.notify.ch.emess; delete S.notify.ch.emess; }
 }
 const saveSettings = () => { try { localStorage.setItem(SET_KEY, JSON.stringify(S)); } catch {} };
-const enabled = () => SOURCES.filter((s) => S.on.includes(s.id) && !(s.login && !signedIn(s)));
+// The Emess switch (S.emessOff) puts all its channels aside without touching which of them are on.
+const emessAside = (s) => s.via === "emess" && S.emessOff;
+const enabled = () => SOURCES.filter((s) => S.on.includes(s.id) && !(s.login && !signedIn(s)) && !emessAside(s));
 // A custom feed ("feed:<n>") lists its own sources, whether or not they are on in the main feed.
-const usable = (s) => !(s.login && !signedIn(s));
+const usable = (s) => !(s.login && !signedIn(s)) && !emessAside(s);
 function tabSources(tab) {
   if (tab.startsWith("feed:")) { const f = S.feeds.find((x) => "feed:" + x.id === tab); return f ? SOURCES.filter((s) => f.srcs.includes(s.id) && usable(s)) : []; }
   if (tab === "all") return enabled().filter(inAll);
@@ -1706,7 +1712,11 @@ function mediaBox(item, of) {
     const dur = el("b"); badge.append(dur);
     const mute = el("button", "vmute"); mute.innerHTML = svg(ICON.muted); mute.setAttribute("aria-label", "הפעלת קול");
     // The box keeps the video's shape when the video gives its file back far from the screen (else it shrinks and grows).
-    v.addEventListener("loadedmetadata", () => { dur.textContent = clock(v.duration); if (!item.size && v.videoWidth) box.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`; });
+    // Without a poster, a seek makes the browser decode a frame now (with preload "metadata" it may stop before one: a black box).
+    v.addEventListener("loadedmetadata", () => {
+      dur.textContent = clock(v.duration); if (!item.size && v.videoWidth) box.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`;
+      if (!v.poster && v.paused && v.readyState < 2) v.currentTime = Math.min(0.1, v.duration / 2 || 0.1);
+    });
     v.addEventListener("error", () => box.replaceWith(mediaNote("הסרטון לא נטען. ייתכן שהוא נמחק מהאתר שלו.")));
     v.addEventListener("timeupdate", () => { if (v.duration) dur.textContent = clock(v.duration - v.currentTime); });
     v.addEventListener("play", () => box.classList.add("auto"));
@@ -1742,15 +1752,26 @@ function imageGrid(imgs, of) {
   return box;
 }
 
+// One player per file: a tab switch draws the post again, and the new box takes over the player that plays
+// (else the old one plays on with no button to stop it). Only one file plays at a time.
+const AUDIOS = new Map();
 function audioBox(url) {
   const wrap = el("div", "audio"), btn = el("button"), track = el("div", "track"), bar = el("i"), time = el("span", null, "0:00");
-  const a = new Audio(); a.preload = "metadata"; a.src = url;
-  btn.innerHTML = svg(ICON.play); btn.setAttribute("aria-label", "ניגון");
+  let a = AUDIOS.get(url);
+  if (!a) {
+    for (const [u, o] of AUDIOS) if (AUDIOS.size >= 30 && o.paused && !o._ui?.btn.isConnected) { o.removeAttribute("src"); o.load(); AUDIOS.delete(u); }
+    a = new Audio(); a.preload = "metadata"; a.src = url; AUDIOS.set(url, a);
+    const ui = () => a._ui;
+    a.addEventListener("play", () => { ui().btn.innerHTML = svg(ICON.pause); for (const o of AUDIOS.values()) if (o !== a && !o.paused) o.pause(); });
+    a.addEventListener("pause", () => (ui().btn.innerHTML = svg(ICON.play)));
+    a.addEventListener("loadedmetadata", () => { if (!a.currentTime) ui().time.textContent = clock(a.duration); });
+    a.addEventListener("timeupdate", () => { ui().bar.style.width = `${(a.currentTime / a.duration) * 100 || 0}%`; ui().time.textContent = clock(a.currentTime); });
+  }
+  a._ui = { btn, bar, time };
+  btn.innerHTML = svg(a.paused ? ICON.play : ICON.pause); btn.setAttribute("aria-label", "ניגון");
+  if (a.currentTime) { bar.style.width = `${(a.currentTime / a.duration) * 100 || 0}%`; time.textContent = clock(a.currentTime); }
+  else if (a.duration) time.textContent = clock(a.duration);
   btn.addEventListener("click", () => (a.paused ? a.play() : a.pause()));
-  a.addEventListener("play", () => (btn.innerHTML = svg(ICON.pause)));
-  a.addEventListener("pause", () => (btn.innerHTML = svg(ICON.play)));
-  a.addEventListener("loadedmetadata", () => (time.textContent = clock(a.duration)));
-  a.addEventListener("timeupdate", () => { bar.style.width = `${(a.currentTime / a.duration) * 100 || 0}%`; time.textContent = clock(a.currentTime); });
   track.addEventListener("click", (e) => { const r = track.getBoundingClientRect(); a.currentTime = ((r.right - e.clientX) / r.width) * a.duration; });
   track.append(bar); wrap.append(btn, track, time);
   return wrap;
@@ -2487,7 +2508,7 @@ function sourcesPicker(box, only = () => true, sortable = false, toggleOnly = fa
     cat.dataset.cat = c;
     if (sortable) head.prepend(catGrip(box, cat));
     const all = [...own, ...via, ...ems.filter((s) => s.cat === c)];
-    counters.push(() => { const n = all.filter((s) => S.on.includes(s.id)).length; count.textContent = n === 1 ? "אחד דלוק" : n ? `${n} דלוקים` : ""; });
+    counters.push(() => { const n = all.filter((s) => S.on.includes(s.id) && !emessAside(s)).length; count.textContent = n === 1 ? "אחד דלוק" : n ? `${n} דלוקים` : ""; });
     head.append(count); cat.append(head);
     for (const s of own) cat.append(sourceRow(s, toggleOnly));
     if (ems.length) cat.append(emessGroup(ems, toggleOnly));
@@ -2503,21 +2524,22 @@ function sourcesPicker(box, only = () => true, sortable = false, toggleOnly = fa
   }
   countAll();
 }
-// Emess's channels in one folding group; the switch in its header turns all of them on or off (partly on: half).
+// Emess's channels in one folding group. The switch in its header turns Emess as a whole on or off: off, the
+// channels keep their own switches as they were, but greyed and out of the feed; on again, they are back as they were.
 function emessGroup(ems, toggleOnly) {
   const grp = el("details", "via"), sum = el("summary"), t = el("span", null, "אמס");
-  t.append(el("small", null, `${ems.length} ערוצים, כל אחד בקטגוריה שלו`));
+  t.append(el("small", null, `${ems.length} ערוצים, כל אחד בקטגוריה שלו. כבוי: כולם מחוץ לפיד, וכל ערוץ נשאר כמו שהיה`));
   const sw = el("button", "switch"); sw.setAttribute("role", "switch"); sw.setAttribute("aria-label", "כל אמס");
   const rows = ems.map((s) => { const r = sourceRow(s, toggleOnly); r.querySelector("span")?.append(el("small", null, CAT_NAME[s.cat] || "")); return r; });
-  const state = () => { const k = ems.filter((s) => S.on.includes(s.id)).length; sw.setAttribute("aria-checked", k === ems.length ? "true" : k ? "mixed" : "false"); };
+  const state = () => {
+    sw.setAttribute("aria-checked", !S.emessOff);
+    rows.forEach((r) => { const x = r.querySelector(".switch:not(.google)"); if (x) x.disabled = !!S.emessOff; r.classList.toggle("aside", !!S.emessOff); });
+  };
   sw.addEventListener("click", (e) => {
     e.preventDefault(); e.stopPropagation();
-    const on = !ems.every((s) => S.on.includes(s.id)), ids = ems.map((s) => s.id);
-    S.on = on ? [...new Set([...S.on, ...ids])] : S.on.filter((x) => !ids.includes(x));
-    rows.forEach((r) => r.querySelector(".switch:not(.google)")?.setAttribute("aria-checked", on));
+    S.emessOff = !S.emessOff;
     saveSettings(); dirty = true; countAll(); state();
   });
-  grp.addEventListener("click", (e) => { if (e.target.closest(".row .switch")) setTimeout(state); });
   sum.append(avatar({ id: "emess", name: "אמס", logo: "https://www.emess.co.il/logo.svg" }), t, sw);
   grp.append(sum, ...rows);
   state();
@@ -2735,7 +2757,8 @@ function setTab(t, keepSearch) {
 }
 document.querySelectorAll("#setTabs button").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.t)));
 function buildSettings() {
-  setTab(S.setTab && S.setTab !== "advanced" ? S.setTab : "display");
+  // Only on open: a change inside the open sheet keeps its tab, search and scroll.
+  if (!$("#sheet").classList.contains("show")) setTab(S.setTab && S.setTab !== "advanced" ? S.setTab : "display");
   buildAccounts();
   sourcesPicker($("#setSources"));
   buildFeeds();
@@ -3926,7 +3949,7 @@ async function checkVersion() {
 const nearObserver = new IntersectionObserver((entries) => {
   for (const e of entries) {
     const v = e.target;
-    if (e.isIntersecting) { if (!v.getAttribute("src") && !sv("svVid")) v.src = v.dataset.src; }
+    if (e.isIntersecting) { if (!v.getAttribute("src")) v.src = v.dataset.src; }
     else if (v.getAttribute("src") && (v.paused || v.muted)) { v.pause(); v.removeAttribute("src"); v.load(); }
   }
 }, { root: $("#scroller"), rootMargin: "1600px 0px" });
@@ -3938,7 +3961,7 @@ const videoObserver = new IntersectionObserver((entries) => {
   for (const e of entries) {
     const v = e.target;
     if (e.isIntersecting && e.intersectionRatio > 0.6) {
-      if (!v.paused || v.controls || S.autoplay === false) continue;
+      if (!v.paused || v.controls || S.autoplay === false || sv("svVid")) continue;   // data saver: one frame only, the video on a click
       v.muted = !S.autoSound || [...document.querySelectorAll("video")].some((o) => o !== v && !o.paused && !o.muted);
       v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
     } else if (!v.paused) v.pause();
