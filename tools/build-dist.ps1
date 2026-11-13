@@ -1,8 +1,15 @@
 # Builds dist\out\HaFeed-Setup.cmd: the single-file installer for other machines.
 # Only the feed and its widgets go in. Own package identity and CLSID, so it can sit next to the dev package.
+# -Next: raise the version first (a release). Without it the build keeps the current version (a rebuild).
+param([switch]$Next)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
+if ($Next) {
+    $mf = Get-Content package\AppxManifest.xml -Raw
+    $v = [regex]::Match($mf, 'Identity[^>]*Version="(\d+)\.(\d+)\.(\d+)\.0"')
+    $mf -replace '(Identity[^>]*Version=")[\d.]+(")', "`${1}$($v.Groups[1]).$($v.Groups[2]).$([int]$v.Groups[3].Value + 1).0`$2" | Set-Content package\AppxManifest.xml -NoNewline
+}
 $Clsid = 'FBACA4FF-FB4B-4136-BBFA-7BA94B052D65'
 $WClsid = '1E52DA20-3303-4DC3-909D-0510F029E6C3'   # the widgets class (widgets.rs)
 $out = "$root\dist\out"; $stage = "$out\stage"

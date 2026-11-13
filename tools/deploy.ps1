@@ -1,4 +1,5 @@
-# Build, bump the package version, copy to D:\tools\hagizra-widget and re-register.
+# Build, copy to D:\tools\hagizra-widget and re-register. The release version is not raised here (a test is not
+# a version): tools/build-dist.ps1 -Next raises it for a release.
 # The platform relaunches the provider by itself, so the copy retries until the exe is free.
 param([string]$Dst = "$env:LOCALAPPDATA\HaFeed-dev")
 $ErrorActionPreference = 'Stop'
@@ -10,9 +11,14 @@ if (Test-Path $lock) { try { [IO.File]::Open($lock, 'Open', 'ReadWrite', 'None')
 cargo build --release -q
 if ($LASTEXITCODE) { throw "build failed" }
 $m = Get-Content package\AppxManifest.xml -Raw
-$v = [regex]::Match($m, 'Identity[^>]*Version="(\d+)\.(\d+)\.(\d+)\.0"')
-$next = "$($v.Groups[1]).$($v.Groups[2]).$([int]$v.Groups[3].Value + 1).0"
-$m -replace '(Identity[^>]*Version=")[\d.]+(")', "`${1}$next`$2" | Set-Content package\AppxManifest.xml -NoNewline
+$ver = { param($t) [version][regex]::Match($t, 'Identity[^>]*Version="([\d.]+)"').Groups[1].Value }
+$next = & $ver $m
+# Windows re-registers a changed package only under a higher version: the dev copy counts its deploys in the
+# fourth part (0.3.116.1, .2, ...); the first three are the release's and change only with build-dist -Next.
+if (Test-Path "$Dst\AppxManifest.xml") {
+    $had = & $ver (Get-Content "$Dst\AppxManifest.xml" -Raw)
+    if ($had -ge $next) { $next = [version]::new($had.Major, $had.Minor, $had.Build, $had.Revision + 1) }
+}
 New-Item -ItemType Directory -Force "$Dst\Images", "$Dst\Public" | Out-Null
 Copy-Item package\Images\* "$Dst\Images" -Force
 # The dev copy has a red logo, so it is not mistaken for the installed release beside it.
@@ -22,6 +28,6 @@ for ($i = 0; $i -lt 10; $i++) {
     Get-Process hagizra-widget -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$Dst\*" } | Stop-Process -Force
     try { Copy-Item target\release\hagizra-widget.exe $Dst -Force; break } catch { Start-Sleep -Milliseconds 400 }
 }
-Copy-Item package\AppxManifest.xml $Dst -Force
+$m -replace '(Identity[^>]*Version=")[\d.]+(")', "`${1}$next`$2" | Set-Content "$Dst\AppxManifest.xml" -NoNewline
 Add-AppxPackage -Register "$Dst\AppxManifest.xml" -ForceApplicationShutdown   # only this package: the board may have restarted its provider
 "deployed $next"

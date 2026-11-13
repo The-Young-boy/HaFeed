@@ -296,8 +296,11 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 #scroller > * { width: 100%; max-width: 680px; margin-inline: auto; flex: none; }
 #feed { display: flex; flex-direction: column; }
 @media (min-width: 700px) { main#feed { min-height: 0; flex: 1 0 auto; } }
-.chat #scroller, .chat #feed { flex-direction: column-reverse; }
-.chat #scroller { justify-content: flex-start; }
+/* Newest at the bottom: the scroller stays a normal top-to-bottom one (Chromium holds the reading position there,
+   not in a column-reverse scroller), only the list is reversed. Older items load at the top, so the loader and the
+   sentinel go first; a short list sits at the bottom (an auto margin, not justify-content, which would cut the top). */
+.chat #feed { flex-direction: column-reverse; }
+.chat #sentinel { order: -3; margin-top: auto; } .chat #loader { order: -2; } .chat #empty { order: -1; }
 .brand .icon-btn { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); flex: none; }
 .brand .icon-btn:hover { background: var(--bg-hover); color: var(--text); }
 .brand .icon-btn svg { width: 20px; height: 20px; }
@@ -1685,7 +1688,8 @@ function mediaBox(item, of) {
     const badge = el("span", "vbadge"); badge.innerHTML = svg(ICON.cam);
     const dur = el("b"); badge.append(dur);
     const mute = el("button", "vmute"); mute.innerHTML = svg(ICON.muted); mute.setAttribute("aria-label", "הפעלת קול");
-    v.addEventListener("loadedmetadata", () => { dur.textContent = clock(v.duration); });
+    // The box keeps the video's shape when the video gives its file back far from the screen (else it shrinks and grows).
+    v.addEventListener("loadedmetadata", () => { dur.textContent = clock(v.duration); if (!item.size && v.videoWidth) box.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`; });
     v.addEventListener("error", () => box.replaceWith(mediaNote("הסרטון לא נטען. ייתכן שהוא נמחק מהאתר שלו.")));
     v.addEventListener("timeupdate", () => { if (v.duration) dur.textContent = clock(v.duration - v.currentTime); });
     v.addEventListener("play", () => box.classList.add("auto"));
@@ -2061,7 +2065,7 @@ function openTab(t) {
   if (inSaved) {
     tab = t; stream = newStream([]); seen = new Set(); pending = []; loading = false;
     $("#pill").classList.remove("show");
-    buildTabs(); showSaved(); stRefresh(); scroller.scrollTop = 0;
+    buildTabs(); showSaved(); stRefresh(); toEdge();
     return;
   }
   if (was) buildTabs();
@@ -2108,9 +2112,10 @@ async function refreshFromTop() {
 // ---------- order (newest on top, or at the bottom like a chat) ----------
 const scroller = $("#scroller");
 const chat = () => S.order === "bottom";
-// Distance from the newest edge. In a column-reverse scroller Chromium counts scrollTop from the bottom (0, then negative).
-const fromEdge = () => (chat() ? -scroller.scrollTop : scroller.scrollTop);
-const toEdge = (smooth) => scroller.scrollTo({ top: 0, behavior: smooth ? "smooth" : "auto" });
+// Distance from the newest edge: the top, or the bottom when newest is at the bottom.
+const fromEdge = () => (chat() ? scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop : scroller.scrollTop);
+let ownScroll = 0, atEdge = true;   // when the feed itself scrolled (not the reader); the reader is at the newest edge
+const toEdge = (smooth) => { ownScroll = Date.now() + (smooth ? 1000 : 150); atEdge = true; scroller.scrollTo({ top: chat() ? scroller.scrollHeight : 0, behavior: smooth === true ? "smooth" : "auto" }); };
 function applyOrder() {
   document.documentElement.classList.toggle("chat", chat());
   for (const l of ["column", "wide"]) document.documentElement.classList.toggle("lay-" + l, S.layout === l);
@@ -2195,7 +2200,7 @@ async function poll(force = false) {
   if (!inSaved) seeTab(tab);
   pending = [...fresh, ...pending].sort((a, b) => b.t - a.t);
   // New items never shift the page under the reader: they go in only at the newest edge and after a quiet moment.
-  if (force || (fromEdge() < 80 && !document.hidden && idle())) { flushPending(); trim(); } else showPill();
+  if (force || (fromEdge() < 80 && !document.hidden && idle())) { flushPending(); trim(); if (chat()) toEdge(); } else showPill();
 }
 
 function flushPending() {
@@ -2238,7 +2243,12 @@ $("#logo").addEventListener("click", () => toEdge(true));
 let lastTouch = 0;
 const idle = () => Date.now() - lastTouch > 8000;
 for (const ev of ["wheel", "pointerdown", "keydown", "touchstart"]) addEventListener(ev, () => (lastTouch = Date.now()), { passive: true, capture: true });
+// A touchpad in the board scrolls with none of the events above: scrolling counts as reading too.
+scroller.addEventListener("scroll", () => { if (Date.now() > ownScroll) { lastTouch = Date.now(); atEdge = fromEdge() < 80; } }, { passive: true });
+// Newest at the bottom: while the reader is at the newest edge, the page stays there as posts, pictures and videos load.
+{ const ro = new ResizeObserver(() => { if (chat() && atEdge && fromEdge() > 1) toEdge(); }); ro.observe($("#feed")); ro.observe($("#stRow")); }
 scroller.addEventListener("scroll", updatePill, { passive: true });
+
 
 // A site that failed three rounds in a row (about 45 seconds) is "not answering": a red dot on its logo in the
 // feed (the reason on hover) and a line in its row in Sources.
@@ -3994,7 +4004,7 @@ function showPics() {
   $("#pill").classList.remove("show"); $("#empty").hidden = true;
   const grid = el("div", "gallery");
   $("#feed").replaceChildren(grid);
-  buildTabs(); stRefresh(); picsAdd(items); scroller.scrollTop = 0;
+  buildTabs(); stRefresh(); picsAdd(items); toEdge();
 }
 function picsAdd(items) {
   const grid = $("#feed .gallery");
