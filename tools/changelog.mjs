@@ -1,5 +1,6 @@
-// CHANGELOG.md from the GitHub releases, the way About shows them ("מה חדש"): a heading per version with its
-// date, newest first, without the lines every release repeats. Markdown, ready to paste in the forum.
+// CHANGELOG.md from the GitHub releases, the way About shows them ("מה חדש"): a bold line per version with its
+// date (not a # heading, which the forum draws big), bold section titles, lists; newest first, without the lines
+// every release repeats. Markdown, ready to paste in the forum.
 // Runs with each release: node tools/changelog.mjs <out file>
 import { writeFileSync } from "node:fs";
 
@@ -13,10 +14,10 @@ for (let page = 1; ; page++) {
   list.push(...rel);
   if (rel.length < 100) break;
 }
-const md = ["# מה חדש בהפיד", ""];
+const md = ["**מה חדש**", ""];
 for (const x of list) {
   const date = new Date(x.published_at).toLocaleDateString("he-IL", { timeZone: "Asia/Jerusalem" });
-  md.push(`### גרסה ${x.tag_name.replace(/^v/, "")} · ${date}`, "");
+  md.push(`**גרסה ${x.tag_name.replace(/^v/, "")}** · ${date}`, "");
   const lines = (x.body || "").split(/\r?\n/).filter((l) => !same.test(l.trim()));
   // ponytail: blank-line runs folded to one; the body is the release notes as written.
   md.push(lines.join("\n").replace(/\n{3,}/g, "\n\n").trim(), "");
