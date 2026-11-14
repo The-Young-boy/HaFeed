@@ -223,6 +223,14 @@ impl IFeedResourceProvider_Impl for Provider_Impl {
                 Err(e) => args.SetResponse(&respond(e.as_bytes(), "text/plain; charset=utf-8", 500)?),
             };
         }
+        if let Some(q) = uri.split_once("/winfeed/download?").map(|(_, q)| q) {
+            let url = http::query(q, "u").next().unwrap_or_default();
+            let kind = http::query(q, "k").next().unwrap_or_default();
+            return match clip::download(&url, &kind) {
+                Ok(name) => args.SetResponse(&respond(name.as_bytes(), "text/plain; charset=utf-8", 200)?),
+                Err(e) => args.SetResponse(&respond(e.as_bytes(), "text/plain; charset=utf-8", 500)?),
+            };
+        }
         if let Some(q) = uri.split_once("/winfeed/proxy?").map(|(_, q)| q) {
             let url = http::query(q, "u").next().unwrap_or_default();
             let method = http::query(q, "m").next().unwrap_or_else(|| "GET".into());
