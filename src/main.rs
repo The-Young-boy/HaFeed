@@ -80,7 +80,8 @@ fn log(msg: &str) {
     let path = std::env::temp_dir().join("hagizra-feed.log");
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
         let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
-        let _ = writeln!(f, "{t} {msg}");
+        // The process id: two providers can write here at once (dev and release, or two of one package).
+        let _ = writeln!(f, "{t} {} {msg}", std::process::id());
     }
 }
 

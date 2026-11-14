@@ -101,6 +101,9 @@ a:hover { text-decoration: underline; }
   color: var(--muted); font-weight: 500; transition: background .2s;
 }
 .tabs button:hover { background: var(--bg-hover); }
+.subtabs { border-top: 1px solid var(--line); }
+.subtabs button { padding: 9px 0 10px; font-size: 13.5px; }
+.subtabs button[aria-selected="true"]::after { width: 36px; height: 3px; }
 .tabs button[aria-selected="true"] { color: var(--text); font-weight: 700; }
 .tabs button[aria-selected="true"]::after {
   content: ""; position: absolute; bottom: 0; left: 50%; translate: -50% 0;
@@ -262,6 +265,7 @@ a:hover { text-decoration: underline; }
   background: rgba(0,0,0,.92); opacity: 0; pointer-events: none; transition: opacity .2s;
 }
 .lightbox.show { opacity: 1; pointer-events: auto; }
+.lightbox video { max-width: 100vw; max-height: 100vh; background: #000; }
 .lightbox img { max-width: 100vw; max-height: 100vh; object-fit: contain; transform-origin: 0 0; cursor: zoom-in; touch-action: none; }
 .lightbox img.zoomed { cursor: grab; }
 .lightbox button {
@@ -289,6 +293,7 @@ a:hover { text-decoration: underline; }
   transition: .25s; pointer-events: none;
 }
 .toast.show { translate: -50% 0; opacity: 1; }
+.toast .inl svg { width: 1.15em; height: 1.15em; vertical-align: -.22em; }
 
 /* ---------- layout: one scroll area under the header, so the chat order can scroll from the bottom ---------- */
 html, body { height: 100%; }
@@ -453,6 +458,7 @@ mark.hl { background: color-mix(in srgb, var(--accent) 22%, transparent); color:
 .st-tile { flex: none; width: 92px; height: 140px; border-radius: 14px; position: relative; overflow: hidden; background: var(--bg-raised); padding: 0; }
 .st-tile > img, .st-tile > .pv { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .st-tile > .pv { display: grid; place-items: center; background: linear-gradient(160deg, #2a3f55, #141a22); }
+.st-tile > .pv svg { width: 28px; height: 28px; color: #fff; }
 .st-tile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(transparent 55%, rgba(0,0,0,.7)); }
 .st-tile .ring { position: absolute; top: 6px; inset-inline-start: 6px; z-index: 1; }
 .st-tile span { position: absolute; bottom: 6px; inset-inline: 6px; z-index: 1; color: #fff; font-size: 12px; font-weight: 600; text-align: start; line-height: 1.25; }
@@ -595,7 +601,10 @@ label.chip { cursor: pointer; }
 .nt-field-ta { width: 100%; box-sizing: border-box; margin: 6px 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg-raised); color: var(--text); font: inherit; resize: vertical; }
 .mute-menu { position: absolute; bottom: calc(100% + 6px); inset-inline-end: 0; z-index: 5; display: grid; min-width: 180px; padding: 6px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); box-shadow: 0 12px 30px rgba(0,0,0,.22); }
 .mute-menu b { font-size: 12.5px; color: var(--muted); padding: 4px 8px; font-weight: 600; }
-.mute-menu button { text-align: start; padding: 7px 10px; border-radius: 8px; font-size: 14px; }
+.mute-menu button { display: flex; align-items: center; gap: 10px; text-align: start; padding: 7px 10px; border-radius: 8px; font-size: 14px; }
+.mute-menu button svg { width: 18px; height: 18px; flex: none; color: var(--muted); }
+.mute-menu button span { flex: 1; }
+.mute-menu button.back { font-weight: 600; border-bottom: 1px solid var(--line); border-radius: 8px 8px 0 0; margin-bottom: 4px; }
 .mute-menu button:hover { background: var(--bg-hover); }
 .row.sub { margin-inline-start: 14px; padding-inline-start: 12px; border-inline-start: 2px solid var(--line); }
 .row img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; background: var(--bg-raised); flex: none; }
@@ -805,6 +814,7 @@ button.react:hover { border-color: var(--accent); }
     <button class="icon-btn" id="gear" aria-label="הגדרות" title="הגדרות"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.47.47 0 0 0 .12.61l2.03 1.58c-.05.31-.09.63-.09.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.47.47 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg></button>
   </div>
   <nav class="tabs" role="tablist" id="tabs"></nav>
+  <nav class="tabs subtabs" role="tablist" id="subtabs" hidden></nav>
   <div class="ticker" id="ticker" hidden>
     <span class="lbl"><i></i>מבזקים</span>
     <div class="lane"><div class="run" id="run"></div></div>
@@ -939,6 +949,7 @@ button.react:hover { border-color: var(--accent); }
       <div class="row"><span>תגובות אימוג'י<small>מונים, ואפשרות להגיב באתרים שתומכים</small></span><button class="switch" role="switch" id="setReacts" aria-label="תגובות אימוג'י"></button></div>
       <div class="row"><span>ניגון אוטומטי של סרטונים<small>סרטון מתנגן כשהוא על המסך</small></span><button class="switch" role="switch" id="setAutoplay" aria-label="ניגון אוטומטי של סרטונים"></button></div>
       <div class="row sub" id="setSoundRow"><span>עם קול<small>בלי לחיצה. כבוי: הסרטון מתנגן מושתק</small></span><button class="switch" role="switch" id="setSound" aria-label="קול בניגון האוטומטי"></button></div>
+      <div class="row"><span>סרטון בחלון גדול<small>לחיצה על סרטון פותחת אותו בחלון גדול, כמו תמונה. כבוי: הסרטון מתנגן בתוך ההודעה</small></span><button class="switch" role="switch" id="setVidBig" aria-label="סרטון בחלון גדול"></button></div>
       <div class="row"><span>מספר חדשות בלשוניות<small>כמה ידיעות חדשות הגיעו לכל לשונית מאז שהיית בה</small></span><button class="switch" role="switch" id="setTabCounts" aria-label="מספר חדשות בלשוניות"></button></div>
     </section>
     <section data-t="advanced">
@@ -1129,6 +1140,7 @@ button.react:hover { border-color: var(--accent); }
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
   <button id="lbClose" aria-label="סגירה"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10.6 12L4.3 5.7l1.4-1.4 6.3 6.3 6.3-6.3 1.4 1.4-6.3 6.3 6.3 6.3-1.4 1.4-6.3-6.3-6.3 6.3-1.4-1.4 6.3-6.3z"/></svg></button>
   <img id="lbImg" alt="">
+  <video id="lbVid" controls playsinline hidden></video>
   <button class="nav prev" id="lbPrev" aria-label="הקודמת"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.6 5.6L10 4.2 17.8 12 10 19.8l-1.4-1.4L15 12z"/></svg></button>
   <button class="nav next" id="lbNext" aria-label="הבאה"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.4 5.6L14 4.2 6.2 12l7.8 7.8 1.4-1.4L9 12z"/></svg></button>
   <span class="count" id="lbCount"></span>
@@ -1146,7 +1158,7 @@ button.react:hover { border-color: var(--accent); }
     <span class="st-who"><b id="stName"></b><small id="stSub"></small></span>
     <span class="st-sp"></span>
     <button class="st-ic" id="stSound" aria-label="קול"></button>
-    <button class="st-ic" id="stDots" aria-label="עוד">⋮</button>
+    <button class="st-ic" id="stDots" aria-label="עוד"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg></button>
   </div>
   <div class="st-menu" id="stMenu" hidden></div>
   <div class="st-media" id="stMedia"></div>
@@ -1169,6 +1181,12 @@ const ICON = {
   share: "M12 2.59l5.7 5.7-1.41 1.42L13 6.41V16h-2V6.41l-3.3 3.3-1.41-1.42L12 2.59zM21 15l-.02 3.51c0 1.38-1.12 2.49-2.5 2.49H5.5C4.11 21 3 19.88 3 18.5V15h2v3.5c0 .28.22.5.5.5h12.98c.28 0 .5-.22.5-.5L19 15h2z",
   muted: "M15 4.25v15.5a.75.75 0 01-1.22.58L8.24 15.9H5A2 2 0 013 13.9v-3.8a2 2 0 012-2h3.24l5.54-4.43A.75.75 0 0115 4.25zm2.3 5.03l1.7 1.7 1.7-1.7 1.06 1.06L20.06 12l1.7 1.7-1.06 1.06-1.7-1.7-1.7 1.7-1.06-1.06 1.7-1.7-1.7-1.66z",
   smile: "M12 2a10 10 0 1 0 10 10h-2a8 8 0 1 1-8-8V2zm-3.5 8a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM12 17.5c2.3 0 4.3-1.4 5.1-3.5H6.9c.8 2.1 2.8 3.5 5.1 3.5zM19 2v3h3v2h-3v3h-2V7h-3V5h3V2h2z",
+  bookmark: "M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2zm0 15-5-2.18L7 18V5h10v13z",
+  download: "M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z",
+  sound: "M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z",
+  clock: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z",
+  chevStart: "M8.59 16.59 10 18l6-6-6-6-1.41 1.41L13.17 12z",
+  chevEnd: "M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z",
   more: "M6 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z",
   bellOff: "M20 18.7 3.3 2 2 3.3l4.3 4.3A6.9 6.9 0 0 0 5 11.5V16l-2 2v1h14.7l2 2 1.3-1.3-1-1zM12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6.8V11.5c0-3.1-1.6-5.6-4.5-6.3V4.5a1.5 1.5 0 0 0-3 0v.7a6 6 0 0 0-1.9.8L18 15.2z",
   link: "M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z",
@@ -1516,6 +1534,7 @@ const enabled = () => SOURCES.filter((s) => S.on.includes(s.id) && !(s.login && 
 // A custom feed ("feed:<n>") lists its own sources, whether or not they are on in the main feed.
 const usable = (s) => !(s.login && !signedIn(s)) && !emessAside(s);
 function tabSources(tab) {
+  if (tab.includes("|")) { const [t, id] = tab.split("|"); return tabSources(t).filter((s) => s.id === id); }
   if (tab.startsWith("feed:")) { const f = S.feeds.find((x) => "feed:" + x.id === tab); return f ? SOURCES.filter((s) => f.srcs.includes(s.id) && usable(s)) : []; }
   if (tab === "all") return enabled().filter(inAll);
   return enabled().filter((s) => s.cat === tab);
@@ -1725,7 +1744,7 @@ function mediaBox(item, of) {
     v.addEventListener("timeupdate", () => { if (v.duration) dur.textContent = clock(v.duration - v.currentTime); });
     v.addEventListener("play", () => box.classList.add("auto"));
     v.addEventListener("pause", () => box.classList.remove("auto"));
-    const start = () => { if (!v.getAttribute("src")) v.src = v.dataset.src; v.muted = false; v.controls = true; v.loop = false; box.classList.add("playing"); v.play(); };
+    const start = () => { if (S.vidBig) { v.pause(); return openVideo(item.url.split("#")[0]); } if (!v.getAttribute("src")) v.src = v.dataset.src; v.muted = false; v.controls = true; v.loop = false; box.classList.add("playing"); v.play(); };
     play.addEventListener("click", start);
     mute.addEventListener("click", (e) => { e.stopPropagation(); start(); });
     v.addEventListener("click", () => { if (!v.controls) start(); });
@@ -1816,14 +1835,16 @@ const keyOf = (it) => `${it.src}:${it.id}`;
 function muteMenu(actions, src, it) {
   document.querySelectorAll(".mute-menu").forEach((m) => m.remove());
   const m = el("div", "mute-menu");
-  const save = el("button", null, isSaved(it) ? "🔖 הסרה מהשמורים" : "🔖 שמירה לאחר כך");
-  save.addEventListener("click", () => { m.remove(); toast(toggleSaved(it) ? "נשמר. כל השמורים בכפתור 🔖 למעלה" : "הוסר מהשמורים"); });
+  // A row: an icon (SVG, never an emoji), the label, and an arrow when it opens a submenu.
+  const item = (icon, label, sub) => { const b = el("button"); b.innerHTML = svg(ICON[icon]); b.append(el("span", null, label)); if (sub) b.insertAdjacentHTML("beforeend", svg(ICON.chevEnd, "sub")); return b; };
+  const save = item("bookmark", isSaved(it) ? "הסרה מהשמורים" : "שמירה לאחר כך");
+  save.addEventListener("click", () => { m.remove(); toast(toggleSaved(it) ? "נשמר. כל השמורים בכפתור {bookmark} למעלה" : "הוסר מהשמורים"); });
   m.append(save);
   // Download: each picture, video or audio file of the post into the Downloads folder (the provider downloads it).
   const files = norm(it).media.filter((x) => /^https:/.test(x.url) && !privateMedia(x.url));
   const WHAT = { image: "התמונה", video: "הסרטון", audio: "השמע" };
   files.forEach((x, i) => {
-    const b = el("button", null, `⬇️ הורדת ${WHAT[x.kind] || "הקובץ"}${files.length > 1 ? ` ${i + 1}` : ""}`);
+    const b = item("download", `הורדת ${WHAT[x.kind] || "הקובץ"}${files.length > 1 ? ` ${i + 1}` : ""}`);
     b.addEventListener("click", async () => {
       m.remove(); toast("מוריד...");
       try {
@@ -1834,16 +1855,23 @@ function muteMenu(actions, src, it) {
     });
     m.append(b);
   });
-  m.append(el("b", null, "השתקת " + src.name));
-  for (const [label, ms] of [["לשעה", 36e5], ["עד מחר", 864e5], ["לשבוע", 7 * 864e5], ["עד שאבטל", 3650 * 864e5]]) {
-    const b = el("button", null, "🔕 " + label);
+  // Muting: one row; the times open in a submenu in its place, with a way back.
+  const mute = item("bellOff", "השתקת " + src.name, true);
+  mute.addEventListener("click", () => {
+    const back = item("chevStart", "השתקת " + src.name); back.classList.add("back");
+    back.addEventListener("click", () => muteMenu(actions, src, it));
+    m.replaceChildren(back);
+    for (const [label, ms] of [["לשעה", 36e5], ["עד מחר", 864e5], ["לשבוע", 7 * 864e5], ["עד שאבטל", 3650 * 864e5]]) {
+    const b = item("clock", label);
     b.addEventListener("click", () => {
       S.mutes = { ...(S.mutes || {}), [src.id]: Date.now() + ms }; saveSettings(); m.remove();
       document.querySelectorAll(`#feed .post[data-key^="${CSS.escape(src.id)}:"]`).forEach((p) => p.remove());
       toast(`${src.name} מושתק ${label}. ביטול: הגדרות, מתקדם`);
     });
     m.append(b);
-  }
+    }
+  });
+  m.append(mute);
   actions.append(m);
 }
 addEventListener("pointerdown", (e) => { if (!e.target.closest(".mute-menu")) document.querySelectorAll(".mute-menu").forEach((m) => m.remove()); }, true);
@@ -2095,7 +2123,11 @@ function buildTabs() {
   if (!tabs.some(([c]) => c === S.tab)) S.tab = tabs[0]?.[0] || (S.allOff && cats[0]?.[0]) || "all";
   $("#tabs").replaceChildren(...tabs.map(([c, name]) => {
     const b = el("button", null, name); b.setAttribute("role", "tab"); b.dataset.f = c; b.setAttribute("aria-selected", !inSaved && !inGallery && c === S.tab);
-    b.addEventListener("click", () => { S.tab = c; saveSettings(); inSaved = false; buildTabs(); openTab(c); });
+    b.addEventListener("click", () => {
+      // A second click on the open tab: a row of its channels under it (again: closes it, back to all of them).
+      if (c === S.tab && !inSaved && !inGallery) { subOpen = !subOpen; if (!subOpen && sub) { sub = null; openTab(curTab()); } return buildSubtabs(); }
+      S.tab = c; sub = null; subOpen = false; saveSettings(); inSaved = false; buildTabs(); openTab(c);
+    });
     return b;
   }));
   if (inGallery) {
@@ -2116,6 +2148,20 @@ function buildTabs() {
   $("#logo").classList.toggle("app", $("#logo").src === LOGO);
 }
 
+// One channel of the open tab ("sub"), picked in the row under the tabs. The tab id is then "<tab>|<channel>".
+let sub = null, subOpen = false;
+const curTab = () => (sub && tabSources(S.tab).some((s) => s.id === sub) ? S.tab + "|" + sub : (sub = null, S.tab));
+function buildSubtabs() {
+  const srcs = tabSources(S.tab), row = $("#subtabs");
+  row.hidden = !subOpen || inSaved || inGallery || srcs.length < 2;
+  if (row.hidden) return row.replaceChildren();
+  row.replaceChildren(...[[null, "הכל"], ...srcs.map((x) => [x.id, x.name])].map(([id, name]) => {
+    const b = el("button", null, name); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(id === sub));
+    b.addEventListener("click", () => { if (id === sub) return; sub = id; buildSubtabs(); openTab(curTab()); });
+    return b;
+  }));
+}
+
 let openedAt = 0;
 function openTab(t) {
   openedAt = Date.now();
@@ -2129,7 +2175,8 @@ function openTab(t) {
     return;
   }
   if (was) buildTabs();
-  seeTab(t); delete tabCounts[t];
+  buildSubtabs();
+  seeTab(t.split("|")[0]); delete tabCounts[t.split("|")[0]];
   if (typeof stRefresh === "function") stRefresh();
   tab = t; stream = newStream(tabSources(t)); seen = new Set(); pending = []; loading = false;
   $("#pill").classList.remove("show"); $("#empty").hidden = true;
@@ -2174,8 +2221,8 @@ const scroller = $("#scroller");
 const chat = () => S.order === "bottom";
 // Distance from the newest edge: the top, or the bottom when newest is at the bottom.
 const fromEdge = () => (chat() ? scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop : scroller.scrollTop);
-let ownScroll = 0, atEdge = true;   // when the feed itself scrolled (not the reader); the reader is at the newest edge
-const toEdge = (smooth) => { ownScroll = Date.now() + (smooth ? 1000 : 150); atEdge = true; scroller.scrollTo({ top: chat() ? scroller.scrollHeight : 0, behavior: smooth === true ? "smooth" : "auto" }); };
+let ownScroll = 0, ownSmooth = false, atEdge = true, lastFrom = 0;   // when the feed itself scrolled (not the reader); the reader is at the newest edge
+const toEdge = (smooth) => { ownScroll = Date.now() + (smooth ? 1000 : 150); ownSmooth = !!smooth; atEdge = true; scroller.scrollTo({ top: chat() ? scroller.scrollHeight : 0, behavior: smooth === true ? "smooth" : "auto" }); };
 function applyOrder() {
   document.documentElement.classList.toggle("chat", chat());
   for (const l of ["column", "wide"]) document.documentElement.classList.toggle("lay-" + l, S.layout === l);
@@ -2304,7 +2351,14 @@ let lastTouch = 0;
 const idle = () => Date.now() - lastTouch > 8000;
 for (const ev of ["wheel", "pointerdown", "keydown", "touchstart"]) addEventListener(ev, () => (lastTouch = Date.now()), { passive: true, capture: true });
 // A touchpad in the board scrolls with none of the events above: scrolling counts as reading too.
-scroller.addEventListener("scroll", () => { if (Date.now() > ownScroll) { lastTouch = Date.now(); atEdge = fromEdge() < 80; } }, { passive: true });
+// The reader's scroll: any scroll after the feed's own, or one away from the edge during it (pictures that keep
+// loading jumped the feed back every 150 ms, and the reader could not get away from the newest). A move away from
+// the edge leaves it at once, even within the 80 px that count as "at the edge".
+scroller.addEventListener("scroll", () => {
+  const f = fromEdge();
+  if (Date.now() > ownScroll || (!ownSmooth && f > 2)) { lastTouch = Date.now(); atEdge = f < 80 && f <= lastFrom + 1; }
+  lastFrom = f;
+}, { passive: true });
 // Newest at the bottom: while the reader is at the newest edge, the page stays there as posts, pictures and videos load.
 { const ro = new ResizeObserver(() => { if (chat() && atEdge && fromEdge() > 1) toEdge(); }); ro.observe($("#feed")); ro.observe($("#stRow")); }
 scroller.addEventListener("scroll", updatePill, { passive: true });
@@ -2455,7 +2509,7 @@ async function openQuote(q, box) {
   } finally { box.classList.remove("busy"); }
 }
 async function goTo(it) {
-  if (!tabSources(tab).some((s) => s.id === it.src)) { S.tab = S.allOff ? byId(it.src).cat : "all"; saveSettings(); buildTabs(); openTab(S.tab); }
+  if (!tabSources(tab).some((s) => s.id === it.src)) { S.tab = S.allOff ? byId(it.src).cat : "all"; sub = null; saveSettings(); buildTabs(); openTab(S.tab); }
   if (pending.some((p) => keyOf(p) === keyOf(it))) flushPending();
   await loadTo(it);
   const post = document.querySelector(postSel(it));
@@ -2789,6 +2843,7 @@ function buildSettings() {
   $("#setReacts").setAttribute("aria-checked", S.reactions !== false);
   $("#setAutoplay").setAttribute("aria-checked", S.autoplay !== false);
   $("#setSound").setAttribute("aria-checked", S.autoSound === true);
+  $("#setVidBig").setAttribute("aria-checked", S.vidBig === true);
   $("#setSoundRow").hidden = S.autoplay === false;
   $("#setKeepSec").value = S.keepSec; $("#setKeepItems").value = S.keepItems;
   document.querySelectorAll("#setFont button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.font || "m")));
@@ -3019,7 +3074,7 @@ document.querySelectorAll("#setFont button").forEach((b) => b.addEventListener("
 document.querySelectorAll("#setTheme button").forEach((b) => b.addEventListener("click", () => { S.theme = b.dataset.v; saveSettings(); buildSettings(); applyLook(); }));
 document.querySelectorAll("#setQuote button").forEach((b) => b.addEventListener("click", () => { S.quoteMode = b.dataset.v; saveSettings(); buildSettings(); }));
 // These change how items are drawn: the tab is drawn again.
-const redraw = () => { CUT_VER++; if (!inSaved && !inGallery) openTab(S.tab); };
+const redraw = () => { CUT_VER++; if (!inSaved && !inGallery) openTab(curTab()); };
 $("#setStRow").addEventListener("click", () => { S.stRow = S.stRow === false; saveSettings(); buildSettings(); stRefresh(); });
 $("#setStatus").addEventListener("click", () => { S.status = S.status === false; saveSettings(); buildSettings(); stUpdate(); });
 $("#setStNoReact").addEventListener("click", () => { S.stNoReact = S.stNoReact === false; saveSettings(); buildSettings(); stUpdate(true); });
@@ -3147,6 +3202,7 @@ $("#resetAll").addEventListener("click", (e) => {
   try { Object.keys(localStorage).filter((k) => k.startsWith("hz-")).forEach((k) => localStorage.removeItem(k)); } catch {}
   location.reload();
 });
+$("#setVidBig").addEventListener("click", () => { S.vidBig = !S.vidBig; saveSettings(); buildSettings(); });
 $("#setAutoplay").addEventListener("click", () => {
   S.autoplay = S.autoplay === false; saveSettings(); buildSettings();
   if (!S.autoplay) document.querySelectorAll("video").forEach((v) => { if (!v.controls) v.pause(); });
@@ -3165,7 +3221,7 @@ $("#setKeepItems").addEventListener("change", (e) => { S.keepItems = Math.max(0,
 $("#gear").addEventListener("click", () => { buildSettings(); $("#sheet").classList.add("show"); $("#setClose").focus(); });
 // Each tab can go back to its defaults: a second click confirms, and for a few seconds it can be undone.
 const RESET = {
-  display: ["status", "layout", "order", "font", "face", "date", "theme", "accent", "accentShade", "breaking", "reactions", "autoplay", "autoSound", "compact", "density", "tabCounts", "stRow", "saver", "svBg", "svVid", "svStatus", "svPics", "svPoll"],
+  display: ["status", "vidBig", "layout", "order", "font", "face", "date", "theme", "accent", "accentShade", "breaking", "reactions", "autoplay", "autoSound", "compact", "density", "tabCounts", "stRow", "saver", "svBg", "svVid", "svStatus", "svPics", "svPoll"],
   feeds: ["tabOrder", "catOrder", "allEx", "allOff"],
   sources: ["on"],
   advanced: ["keepSec", "keepItems", "hideWords", "highlight", "mutes", "pollSec", "cuts", "quoteMode", "showAds", "brkSound", "noMerge", "textOnly", "stLevel", "stHours", "stAll", "stNoReact"],
@@ -3181,7 +3237,7 @@ function resetTab(t) {
 }
 function afterReset() {
   saveSettings(); CUT_VER++; applyLook(); buildSettings(); setTab(S.setTab || "display");
-  dirty = true; buildTabs(); openTab(S.tab);
+  dirty = true; buildTabs(); openTab(curTab());
 }
 function undoBar(msg, undo) {
   document.querySelector(".undo")?.remove();
@@ -3204,7 +3260,7 @@ for (const t of Object.keys(RESET).concat("notify")) {
 function closeSettings() {
   ntOpen = false;
   $("#sheet").classList.remove("show");
-  if (dirty) { dirty = false; buildTabs(); openTab(S.tab); }
+  if (dirty) { dirty = false; buildTabs(); openTab(curTab()); }
 }
 $("#setClose").addEventListener("click", closeSettings);
 $("#sheet").addEventListener("click", (e) => { if (e.target === $("#sheet")) closeSettings(); });
@@ -3274,7 +3330,7 @@ $("#wizBack").addEventListener("click", () => { let i = Math.max(0, wizAt - 1); 
 $("#wizNext").addEventListener("click", () => {
   if (wizAt < WIZ_LAST) { let i = wizAt + 1; if (wizSkip(i)) i++; return wizShow(i); }
   S.setup = true; S.wizStep = 0; saveSettings(); $("#wiz").hidden = true;
-  applyOrder(); buildTabs(); openTab(S.tab); stUpdate();
+  applyOrder(); buildTabs(); openTab(curTab()); stUpdate();
   if (!S.toured) { S.toured = true; saveSettings(); setTimeout(tour, 700); }
 });
 document.querySelectorAll("#wizOrder button").forEach((b) => b.addEventListener("click", () => { S.order = b.dataset.v; saveSettings(); wizShow(4); }));
@@ -4003,7 +4059,15 @@ const videoObserver = new IntersectionObserver((entries) => {
 let gallery = [], galleryAt = 0;
 // caps: the item each picture belongs to (one for all, or one per picture): its text shows under the picture.
 let lbCaps = [];
+// A video in the same big window (Display setting "video in a big window"): no arrows, count or caption.
+function openVideo(url) {
+  pauseAll();
+  const v = $("#lbVid"); $("#lbImg").hidden = true; $("#lbCap").hidden = true; $("#lbCount").textContent = "";
+  v.hidden = false; v.src = url; v.play().catch(() => {});
+  $("#lightbox").classList.add("show", "vid"); $("#lightbox").classList.remove("multi"); $("#lbClose").focus();
+}
 function openLightbox(urls, at = 0, caps = null) {
+  $("#lightbox").classList.remove("vid"); $("#lbImg").hidden = false;
   gallery = [].concat(urls); galleryAt = at; lbCaps = Array.isArray(caps) ? caps : gallery.map(() => caps); showGallery();
   $("#lightbox").classList.add("show"); $("#lightbox").classList.toggle("multi", gallery.length > 1); $("#lbClose").focus();
 }
@@ -4019,12 +4083,16 @@ function showCaption() {
 }
 $("#lbCap").addEventListener("click", (e) => { e.stopPropagation(); $("#lbCap").classList.toggle("open"); });
 function showGallery() { zoomTo(1); showCaption(); $("#lbImg").src = gallery[galleryAt]; $("#lbCount").textContent = gallery.length > 1 ? `${galleryAt + 1} / ${gallery.length}` : ""; }
-function step(d) { if (gallery.length < 2) return; galleryAt = (galleryAt + d + gallery.length) % gallery.length; showGallery(); }
-function closeLightbox() { $("#lightbox").classList.remove("show"); zoomTo(1); }
+function step(d) { if (gallery.length < 2 || $("#lightbox").classList.contains("vid")) return; galleryAt = (galleryAt + d + gallery.length) % gallery.length; showGallery(); }
+function closeLightbox() {
+  $("#lightbox").classList.remove("show"); zoomTo(1);
+  const v = $("#lbVid"); if (!v.hidden) { v.pause(); v.removeAttribute("src"); v.load(); v.hidden = true; }
+}
 // RTL: the "next" arrow sits on the left.
 $("#lbNext").addEventListener("click", (e) => { e.stopPropagation(); step(1); });
 $("#lbPrev").addEventListener("click", (e) => { e.stopPropagation(); step(-1); });
 $("#lbImg").addEventListener("click", (e) => e.stopPropagation());
+$("#lbVid").addEventListener("click", (e) => e.stopPropagation());
 // Zoom: the wheel (or a touchpad pinch) around the pointer, double click 1x / 2.5x, drag to move a zoomed picture.
 let zs = 1, zx = 0, zy = 0, drag = null;
 function zoomTo(z, cx = innerWidth / 2, cy = innerHeight / 2) {
@@ -4282,7 +4350,7 @@ function stTile(g, list) {
   const m = pic || norm(g.items.at(-1)).media.find((x) => x.kind === "video");
   const b = el("button", "st-tile" + (unseenOf(g) ? "" : " seen"));
   if (m?.kind === "image") { const i = el("img"); i.src = m.url; i.alt = ""; i.loading = "lazy"; b.append(i); }
-  else { const v = el("div", "pv"); if (m?.poster) v.style.background = `center / cover url("${m.poster}")`; else v.textContent = "▶"; b.append(v); }
+  else { const v = el("div", "pv"); if (m?.poster) v.style.background = `center / cover url("${m.poster}")`; else v.innerHTML = svg(ICON.play); b.append(v); }
   b.append(stRing(g, 36), el("span", null, g.name));
   b.setAttribute("aria-label", `סטטוס של ${g.name}${unseenOf(g) ? `, ${unseenOf(g)} חדשים` : ""}`);
   b.addEventListener("click", () => stOpen(list, list.indexOf(g)));
@@ -4358,7 +4426,7 @@ function stShow() {
     media.append(v);
   } else if (m) { const i = el("img"); i.src = m.url; i.alt = ""; media.append(i); }
   $("#stSound").hidden = m?.kind !== "video";
-  $("#stSound").innerHTML = S.stSound === false ? "🔇" : "🔊";
+  $("#stSound").innerHTML = svg(S.stSound === false ? ICON.muted : ICON.sound);
   const cap = $("#stCap"); cap.replaceChildren();
   if (n.title) cap.append(el("b", null, n.title));
   if (n.body) cap.append(n.body.length > 400 ? n.body.slice(0, 400) + "…" : n.body);
@@ -4408,7 +4476,7 @@ $("#stMedia").addEventListener("pointerup", (e) => {
   e.clientX < r.left + r.width / 2 ? stNext() : stPrev();
 });
 $("#stClose").addEventListener("click", stClose);
-$("#stSound").addEventListener("click", () => { S.stSound = S.stSound === false; saveSettings(); const v = $("#stMedia video"); if (v) v.muted = S.stSound === false; $("#stSound").innerHTML = S.stSound === false ? "🔇" : "🔊"; });
+$("#stSound").addEventListener("click", () => { S.stSound = S.stSound === false; saveSettings(); const v = $("#stMedia video"); if (v) v.muted = S.stSound === false; $("#stSound").innerHTML = svg(S.stSound === false ? ICON.muted : ICON.sound); });
 $("#stOpenFeed").addEventListener("click", () => { const it = SV.groups[SV.gi].items[SV.ii]; stClose(); $("#stScreen").hidden = true; goTo(it); });
 $("#stDots").addEventListener("click", () => {
   const g = SV.groups[SV.gi], menu = $("#stMenu"), muted = stMuted(g);
@@ -4479,7 +4547,7 @@ async function countTabs() {
   tabCounts = {};
   for (const b of $("#tabs").children) {
     const t = b.dataset.f;
-    if (!t || t === "saved" || (t === tab && !inSaved)) continue;
+    if (!t || t === "saved" || (t === tab.split("|")[0] && !inSaved)) continue;
     if (!tabSeen(t)) { (S.tabSeen || (S.tabSeen = {}))[t] = Date.now(); continue; }
     const ids = new Set(tabSources(t).map((s) => s.id));
     tabCounts[t] = all.filter((it) => ids.has(it.src) && it.t > tabSeen(t)).length;
@@ -4491,7 +4559,7 @@ function showCounts() {
   for (const b of $("#tabs").children) {
     b.querySelector(".count")?.remove();
     const n = tabCounts[b.dataset.f];
-    if (n && !(b.dataset.f === tab && !inSaved)) { const s = el("span", "count", n > 99 ? "99+" : String(n)); s.setAttribute("aria-label", `${n} חדשות`); b.append(s); }
+    if (n && !(b.dataset.f === tab.split("|")[0] && !inSaved)) { const s = el("span", "count", n > 99 ? "99+" : String(n)); s.setAttribute("aria-label", `${n} חדשות`); b.append(s); }
   }
 }
 setInterval(countTabs, 120000);
@@ -4649,7 +4717,15 @@ addEventListener("keydown", (e) => {
 async function copy(text) {
   try { await navigator.clipboard.writeText(text); toast("הועתק"); } catch { toast("ההעתקה נכשלה"); }
 }
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1600); }
+// "{bookmark}" in the text = that button's SVG icon inside the line, where an emoji would be.
+function toast(msg) {
+  const t = $("#toast");
+  t.replaceChildren(...String(msg).split(/\{(\w+)\}/).map((part, i) => {
+    if (!(i % 2)) return part;
+    const s = el("span", "inl"); s.innerHTML = ICON[part] ? svg(ICON[part]) : ""; return s;
+  }));
+  t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1600);
+}
 
 // ---------- open / close of the board ----------
 // Back within keepSec and fewer than keepItems new items: stay where you were. Otherwise jump to the newest.
@@ -4673,7 +4749,7 @@ document.addEventListener("visibilitychange", async () => {
     return;
   }
   clearTimeout(releaseTimer);
-  if (released) { released = false; openTab(S.tab); return; }
+  if (released) { released = false; openTab(curTab()); return; }
   await poll();
   setTimeout(() => { if (!document.hidden) poll(); }, 2000);   // what the sites answered in the background
   if (hiddenAt && (Date.now() - hiddenAt > S.keepSec * 1000 || pending.length >= S.keepItems)) jumpToNewest();

@@ -65,8 +65,21 @@ pub fn check(install: bool, ui: bool) {
         .find(|a| a["name"] == "HaFeed.msix").and_then(|a| a["browser_download_url"].as_str()).unwrap_or("").to_string();
     if url.is_empty() { return set("failed", "בגרסה החדשה אין חבילה") }
     if !install { return set("idle", "") }
-    set("downloading", "");
     let _ = std::fs::create_dir_all(dir());
+    // One install at a time across processes: Windows can run two providers of the package, and each updates on its
+    // own clock. Two at once overwrote each other's download and task, and the install never finished.
+    // A lock older than 10 minutes is left over from a crash.
+    let lock = dir().join("update.lock");
+    if std::fs::metadata(&lock).and_then(|m| m.modified()).is_ok_and(|t| t.elapsed().unwrap_or_default().as_secs() > 600) {
+        let _ = std::fs::remove_file(&lock);
+    }
+    if std::fs::OpenOptions::new().write(true).create_new(true).open(&lock).is_err() {
+        log("update: another process is installing");
+        return set("installing", "");
+    }
+    // A failure frees the lock; a good install shuts this process down and the next start finds an old lock.
+    let set = |state: &'static str, note: &str| { if state == "failed" { let _ = std::fs::remove_file(dir().join("update.lock")); } set(state, note) };
+    set("downloading", "");
     let msix = dir().join("HaFeed-update.msix");
     if http::download(&url, "User-Agent: HaFeed\r\n", &msix) != Some(200) { return set("failed", "ההורדה נכשלה") }
     set("installing", "");
