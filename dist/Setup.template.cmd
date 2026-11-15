@@ -160,6 +160,7 @@ if ($env:HZ_MODE -and $env:HZ_MODE -ne 'quiet') {
         $code = switch ($env:HZ_MODE) {
             'setup'  { Install-Cert; Invoke-PolicyOpen }
             'remove' { Remove-Cert; Invoke-PolicyRestore }
+            'removecert' { Remove-Cert; 3 }   # HaLuach is installed and still needs the open policy file
             default  { 10 }
         }
     } catch { Write-Log "$($env:HZ_MODE) failed: $_"; $code = 10 }
@@ -564,11 +565,16 @@ $Worker = {
             if ($p) { try { $p | Remove-AppxPackage -ErrorAction Stop } catch { Step 0 'fail' "ההסרה נכשלה: $(($_.Exception.Message -split "`r?`n")[0])"; throw 'stop' } }
             Step 0 'ok' $(if ($p) { 'הוסר.' } else { 'לא היה מותקן.' })
             Step 1 'run'
-            $c = if ($Sync.HasBackup -or $Sync.Trusted) { Elevated 'remove' } else { 3 }
+            # HaLuach (package HaLuach) opens the same three rules in the same file, with the same .orig backup.
+            # While it is installed the file stays open; only this package's certificate goes.
+            $Sync.KeptForLuach = [bool](Get-AppxPackage HaLuach -ErrorAction SilentlyContinue)
+            $c = if ($Sync.KeptForLuach) { if ($Sync.Trusted) { Elevated 'removecert' } else { 3 } }
+                 elseif ($Sync.HasBackup -or $Sync.Trusted) { Elevated 'remove' } else { 3 }
             if ($c -eq -1) { Step 1 'fail' 'לא ניתן אישור מנהל. הקובץ נשאר פתוח.'; throw 'stop' }
             if ($c -ge 10) { Step 1 'fail' "השחזור נכשל. פרטים ביומן: $env:ProgramData\HagizraFeed\setup.log"; throw 'stop' }
             $Sync.Restart = ($c -eq 2)
-            Step 1 $(if ($c -eq 2) { 'ok' } else { 'skip' }) $(if ($c -eq 2) { 'הקובץ המקורי הוחזר, והתעודה הוסרה.' } else { 'לא נשאר מה להחזיר.' })
+            $note = if ($c -eq 2) { 'הקובץ המקורי הוחזר, והתעודה הוסרה.' } elseif ($Sync.KeptForLuach) { 'התעודה הוסרה. הקובץ נשאר פתוח, כי "הלוח" מותקן וצריך אותו.' } else { 'לא נשאר מה להחזיר.' }
+            Step 1 $(if ($c -eq 2) { 'ok' } else { 'skip' }) $note
         }
         $Sync.Result = 'ok'
     } catch { $Sync.Result = 'fail'; if ("$_" -ne 'stop') { $Sync.Error = "$_" } }
@@ -661,7 +667,7 @@ function Show-Done($mode) {
         $script:Next = if ($restart) { 'restart' } else { 'widgets' }
     } else {
         $ui.DoneTitle.Text = 'הפיד הוסר'
-        $ui.DoneText.Text = if ($restart) { 'קובץ ההגדרות האזוריות חזר למקור. אחרי הפעלה מחדש, הלוח יחזור להיות כמו שהיה.' } else { 'לא נשאר במחשב שום דבר מהפיד.' }
+        $ui.DoneText.Text = if ($restart) { 'קובץ ההגדרות האזוריות חזר למקור. אחרי הפעלה מחדש, הלוח יחזור להיות כמו שהיה.' } elseif ($Sync.KeptForLuach) { 'קובץ ההגדרות האזוריות נשאר פתוח, כי "הלוח" מותקן במחשב וצריך אותו.' } else { 'לא נשאר במחשב שום דבר מהפיד.' }
         $ui.BtnPrimary.Content = if ($restart) { 'הפעלה מחדש עכשיו' } else { 'סגירה' }
         $script:Next = if ($restart) { 'restart' } else { 'close' }
     }
