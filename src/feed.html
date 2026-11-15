@@ -2728,9 +2728,24 @@ function sourcesPicker(box, only = () => true, sortable = false, toggleOnly = fa
     if (via.length) {
       const grp = el("details", "via"), sum = el("summary");
       const img = avatar({ id: "authenti", name: "אותנטי ניוז", logo: AUTHENTI.logo });
-      const t = el("span", null, "דרך אותנטי ניוז"); t.append(el("small", null, `${via.length} ערוצים שאותנטי ניוז מרכז`));
-      sum.append(img, t); grp.append(sum);
-      for (const s of via) grp.append(sourceRow(s, toggleOnly));
+      const t = el("span", null, "דרך אותנטי ניוז"), line = el("small"); t.append(line);
+      // One switch for all of them (~50 channels), with a middle: off = none, middle = some, on = all.
+      // A press from off or the middle turns all on; from on, all off. The line under the name says how many are on.
+      const sw = el("button", "switch"); sw.setAttribute("role", "switch"); sw.setAttribute("aria-label", "כל ערוצי אותנטי ניוז");
+      const ids = via.map((s) => s.id), rows = via.map((s) => sourceRow(s, toggleOnly));
+      counters.push(() => {
+        const n = ids.filter((id) => S.on.includes(id)).length;
+        sw.setAttribute("aria-checked", n === ids.length ? "true" : n ? "mixed" : "false");
+        line.textContent = n === ids.length ? `כל ${n} הערוצים דלוקים` : n ? `${n} מתוך ${ids.length} ערוצים דלוקים` : `${ids.length} ערוצים, כולם כבויים`;
+      });
+      sw.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const all = ids.every((id) => S.on.includes(id));
+        S.on = all ? S.on.filter((x) => !ids.includes(x)) : [...new Set([...S.on, ...ids])];
+        rows.forEach((r, i) => r.querySelector(".switch:not(.google)")?.setAttribute("aria-checked", S.on.includes(ids[i])));
+        saveSettings(); dirty = true; countAll();
+      });
+      sum.append(img, t, sw); grp.append(sum, ...rows);
       cat.append(grp);
     }
     box.append(cat);
