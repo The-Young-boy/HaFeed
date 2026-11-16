@@ -186,6 +186,10 @@ a:hover { text-decoration: underline; }
 }
 .media img, .media video { display: block; width: 100%; height: 100%; max-height: 520px; object-fit: cover; }
 .media img { cursor: zoom-in; }
+/* One picture shows whole: a tall one stands in the 520px with the background at its sides, not cut top and bottom
+   (several pictures stay a cropped grid; the compact thumbnail stays a cropped square). */
+.media:not(.grid) > img { position: relative; height: auto; object-fit: contain; }
+.media:not(.grid):has(> img)::before { content: ""; position: absolute; inset: -24px; background: var(--pic, none) center / cover; filter: blur(22px) brightness(.85); }
 .media.grid { display: grid; gap: 2px; aspect-ratio: 16 / 9; grid-template-columns: 1fr 1fr; }
 .media.grid img, .media.grid .cell { min-height: 0; height: 100%; }
 .media.grid.n3 { grid-template-rows: 1fr 1fr; }
@@ -597,7 +601,7 @@ a.src-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 :root.compact .post .col { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: start; }
 :root.compact .post .col > * { grid-column: 1; }
 :root.compact .post .col > .media { grid-column: 2; grid-row: 1 / span 4; width: 96px; height: 96px; aspect-ratio: 1; border-radius: 12px; max-height: none; }
-:root.compact .post .col > .media img, :root.compact .post .col > .media video { height: 96px; max-height: 96px; }
+:root.compact .post .col > .media img, :root.compact .post .col > .media video { height: 96px; max-height: 96px; object-fit: cover; }
 :root.compact .post .col > .media.grid { display: block; } :root.compact .post .col > .media.grid > :not(:first-child) { display: none; }
 :root.compact .post .col > .media ~ .media { display: none; }
 /* A video playing in compact gets the full row: room for its controls, progress bar and menu. */
@@ -633,6 +637,7 @@ label.chip { cursor: pointer; }
 .via[open] summary::after { rotate: -90deg; }
 .via summary img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
 .via summary span { flex: 1; font-weight: 600; }
+.via-mode { margin-bottom: 10px; }
 .via summary small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
 .switch { position: relative; width: 40px; height: 22px; border-radius: 999px; background: var(--line); flex: none; transition: background .2s; }
 .switch::after { content: ""; position: absolute; top: 3px; right: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: right .2s; }
@@ -1101,6 +1106,7 @@ button:active:not(:disabled) { scale: .97; }
       <p class="hint">התוכן שייך לערוצים עצמם. הפיד רק מציג אותו, ובכל ידיעה יש דרך להגיע לאתר המקור.</p>
       <p class="hint">ההגדרות, ההתחברויות והתגובות שלך נשמרות רק במחשב הזה. ההתחברויות נשמרות מוצפנות.</p>
       <p class="hint">האימוג'י: Noto Emoji של Google.</p>
+      <p class="hint">אחות של הפיד: <b>הלוח</b> - זמני היום, שבת וחג, מזג אוויר, רדיו ולימוד יומי, עם ווידג'טים להצמדה. אפשר להתקין את שניהם באותו מחשב. <a href="https://github.com/The-Young-boy/HaLuach/releases/latest">להורדה</a></p>
       <div class="credit">
         <div>נבנה באהבה ע"י <b>יאנג בוי</b></div>
         <div class="credit-btns">
@@ -1347,11 +1353,28 @@ const SOURCES = [
 // Authenti News re-posts ~50 channels; each one is a source of its own ("via Authenti" in the settings).
 const AUTHENTI = { base: "https://authenti.newsupdates.click", logo: "https://authenti.newsupdates.click/assets/images/og-image.jpg" };
 const AUTHENTI_KEY = "hz-authenti-channels";
-function addAuthenti(names) {
-  for (const name of names) {
-    const id = "authenti:" + name;
-    if (!SOURCES.some((s) => s.id === id)) SOURCES.push({ id, name, cat: "news", kind: "authenti", base: AUTHENTI.base, channel: name, via: "authenti", logo: "" });
-  }
+// S.authentiOne: all of Authenti as one channel (its ALL_CHANNELS list, one request) instead of a source per channel.
+// Only one of the two is in SOURCES at a time, so every list (tabs, status, notifications) sees the same thing.
+const AUTHENTI_ALL = "authenti:ALL_CHANNELS";
+let authentiNames = [], authentiReady = false;   // ready: the settings (S) are loaded
+function addAuthenti(names) { authentiNames = [...new Set([...authentiNames, ...names])]; if (authentiReady) syncAuthenti(); }
+function syncAuthenti() {
+  for (let i = SOURCES.length - 1; i >= 0; i--) if (SOURCES[i].via === "authenti") SOURCES.splice(i, 1);
+  if (!authentiNames.length) return;
+  const one = { id: AUTHENTI_ALL, name: "אותנטי ניוז", cat: "news", kind: "authenti", base: AUTHENTI.base, channel: "ALL_CHANNELS", via: "authenti", logo: AUTHENTI.logo };
+  SOURCES.push(...(S.authentiOne ? [one] : authentiNames.map((name) => ({ id: "authenti:" + name, name, cat: "news", kind: "authenti", base: AUTHENTI.base, channel: name, via: "authenti", logo: "" }))));
+}
+// Switching keeps the choice: the channels that were on come back on; any on = the one channel on (and back).
+function setAuthentiOne(one) {
+  if (!!S.authentiOne === one) return;
+  const isCh = (id) => id.startsWith("authenti:") && id !== AUTHENTI_ALL;
+  const swap = (ids) => {
+    if (one) { const had = ids.filter(isCh); if (ids === S.on) S.authentiPick = had; return had.length ? [...ids.filter((x) => !isCh(x)), AUTHENTI_ALL] : ids; }
+    return ids.includes(AUTHENTI_ALL) ? [...new Set([...ids.filter((x) => x !== AUTHENTI_ALL), ...(S.authentiPick?.length ? S.authentiPick : authentiNames.map((n) => "authenti:" + n))])] : ids;
+  };
+  S.on = swap(S.on);
+  for (const f of S.feeds || []) f.srcs = swap(f.srcs || []);
+  S.authentiOne = one; syncAuthenti(); saveSettings(); dirty = true;
 }
 try { addAuthenti(JSON.parse(localStorage.getItem(AUTHENTI_KEY) || "[]")); } catch {}
 async function refreshAuthenti() {
@@ -1572,13 +1595,15 @@ const ADAPTERS = {
       const q = new URLSearchParams({ source: src.channel });
       if (before) q.set("before_id", before); else q.set("last_id", 0);
       const data = await get(src, `${src.base}/api/get_messages_optimized.php?${q}`);
-      const prefix = new RegExp("^\\s*" + src.channel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*:\\s*");
+      // All as one channel: the channel's name goes where Emess shows the reporter (it.author), off the text.
+      const all = src.channel === "ALL_CHANNELS";
+      const prefix = (name) => new RegExp("^\\s*" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*:\\s*");
       const items = (data.messages || []).map((m) => {
-        const body = (m.description || "").replace(prefix, "");
+        const body = (m.description || "").replace(prefix(all ? m.source || "" : src.channel), "");
         // The text is the same markdown-ish format as the chat platform (bold titles, # headings).
         const text = body + (m.image_url ? `\n[image-embedded#](${m.image_url})` : "");
         const reactions = Object.fromEntries([["👍", m.likes], ["👎", m.dislikes], ["😂", m.laughs], ["🤮", m.vomits]].filter(([, n]) => +n > 0).map(([e, n]) => [e, +n]));
-        return { src: src.id, id: +m.id, t: ilTime(m.created_at), text, reactions,
+        return { src: src.id, id: +m.id, t: ilTime(m.created_at), text, reactions, author: all ? (m.source || "").trim() : "",
                  breaking: m.is_breaking == 1, gone: !body.trim() && !m.image_url, ad: false };
       });
       return { items, next: items.length ? minId(items) : 0 };
@@ -1602,6 +1627,7 @@ if (!Array.isArray(S.on)) S.on = SOURCES.filter((s) => s.on).map((s) => s.id);
 }
 const saveSettings = () => { try { localStorage.setItem(SET_KEY, JSON.stringify(S)); } catch {} };
 // The Emess switch (S.emessOff) puts all its channels aside without touching which of them are on.
+authentiReady = true; syncAuthenti();
 const emessAside = (s) => s.via === "emess" && S.emessOff;
 const enabled = () => SOURCES.filter((s) => S.on.includes(s.id) && !(s.login && !signedIn(s)) && !emessAside(s));
 // A custom feed ("feed:<n>") lists its own sources, whether or not they are on in the main feed.
@@ -1797,6 +1823,9 @@ function mediaBox(item, of) {
   if (item.kind === "image") {
     const img = el("img"); fadeIn_(img); img.loading = "lazy"; img.decoding = "async"; img.alt = ""; img.src = item.url;
     img.addEventListener("click", () => openLightbox(item.url, 0, of));
+    // Behind a picture narrower than the box: the same picture, blurred (set once loaded, so it costs no extra fetch
+    // and keeps the lazy load).
+    img.addEventListener("load", () => box.style.setProperty("--pic", `url(${JSON.stringify(img.currentSrc || item.url)})`), { once: true });
     // No size in the data: the box was empty until the picture came. The post grows to it (the picture's height
     // is what it added).
     if (!item.size) img.addEventListener("load", () => { const post = box.closest(".post"); if (post) growFrom(post, post.offsetHeight - img.offsetHeight); }, { once: true });
@@ -1994,7 +2023,7 @@ function render(it, fresh) {
   const meta = el("div", "meta");
   const name = el("a", "src-name", src.name); name.href = linkOf(it); name.title = "פתיחת הידיעה בדפדפן";
   meta.append(name, el("span", null, "·"));
-  if (it.author) { const a = el("span", "author", it.author); a.title = "הכתב"; meta.append(a, el("span", null, "·")); }
+  if (it.author) { const a = el("span", "author", it.author); a.title = byId(it.src)?.kind === "authenti" ? "ערוץ" : "הכתב"; meta.append(a, el("span", null, "·")); }
   const time = el("time", null, ago(t)); time.dateTime = new Date(t).toISOString(); time.title = fullDate(t); time.dataset.t = t;
   meta.append(time);
   if (EDITS.has(keyOf(it))) {
@@ -2213,6 +2242,7 @@ function vt(fn, dir = 0, kind = "") {
   root.classList.toggle("vt-fwd", dir > 0); root.classList.toggle("vt-back", dir < 0);
   if (kind) root.classList.add("vt-" + kind);
   const t = document.startViewTransition(fn);
+  t.ready.catch(() => {});   // a transition cut short (the board hidden) rejects ready: not an error
   t.finished.finally(() => root.classList.remove("vt-fwd", "vt-back", "vt-feed", "vt-set", "vt-lb"));
 }
 // A menu or small window leaves with a short fade instead of vanishing.
@@ -2709,6 +2739,7 @@ function sourceRow(s, toggleOnly = false) {
   return row;
 }
 const counters = [];
+let authentiOpen = false;   // the Authenti group stays open when its mode changes (the list is built again)
 function countAll() { for (const f of counters) f(); }
 // The source list, by category. Used by the settings sheet and the first-run wizard.
 function sourcesPicker(box, only = () => true, sortable = false, toggleOnly = false) {
@@ -2732,11 +2763,17 @@ function sourcesPicker(box, only = () => true, sortable = false, toggleOnly = fa
       // One switch for all of them (~50 channels), with a middle: off = none, middle = some, on = all.
       // A press from off or the middle turns all on; from on, all off. The line under the name says how many are on.
       const sw = el("button", "switch"); sw.setAttribute("role", "switch"); sw.setAttribute("aria-label", "כל ערוצי אותנטי ניוז");
-      const ids = via.map((s) => s.id), rows = via.map((s) => sourceRow(s, toggleOnly));
+      const one = !!S.authentiOne, ids = via.map((s) => s.id), rows = via.map((s) => sourceRow(s, toggleOnly));   // one mode too: its row has the sign-in for reacting
+      const mode = el("div", "seg via-mode");
+      for (const [v, b, sm] of [[true, "ערוץ אחד", "כל אותנטי ניוז כערוץ אחד בפיד"], [false, "ערוץ לכל מקור", `${authentiNames.length} ערוצים, לכל אחד מתג`]]) {
+        const btn = el("button"); btn.append(el("b", null, b), el("small", null, sm)); btn.setAttribute("aria-pressed", v === one);
+        btn.addEventListener("click", () => { if (v === one) return; setAuthentiOne(v); authentiOpen = true; sourcesPicker(box, only, sortable, toggleOnly); });
+        mode.append(btn);
+      }
       counters.push(() => {
         const n = ids.filter((id) => S.on.includes(id)).length;
         sw.setAttribute("aria-checked", n === ids.length ? "true" : n ? "mixed" : "false");
-        line.textContent = n === ids.length ? `כל ${n} הערוצים דלוקים` : n ? `${n} מתוך ${ids.length} ערוצים דלוקים` : `${ids.length} ערוצים, כולם כבויים`;
+        line.textContent = one ? (n ? "ערוץ אחד בפיד, דלוק" : "ערוץ אחד בפיד, כבוי") : n === ids.length ? `כל ${n} הערוצים דלוקים` : n ? `${n} מתוך ${ids.length} ערוצים דלוקים` : `${ids.length} ערוצים, כולם כבויים`;
       });
       sw.addEventListener("click", (e) => {
         e.preventDefault(); e.stopPropagation();
@@ -2745,7 +2782,8 @@ function sourcesPicker(box, only = () => true, sortable = false, toggleOnly = fa
         rows.forEach((r, i) => r.querySelector(".switch:not(.google)")?.setAttribute("aria-checked", S.on.includes(ids[i])));
         saveSettings(); dirty = true; countAll();
       });
-      sum.append(img, t, sw); grp.append(sum, ...rows);
+      sum.append(img, t, sw); grp.append(sum, mode, ...rows);
+      if (authentiOpen) { grp.open = true; authentiOpen = false; }
       cat.append(grp);
     }
     box.append(cat);
@@ -4032,7 +4070,7 @@ async function openPicker(post) {
   pickerFor = post;
   if (needsLogin(src)) {
     // Authenti channels are mostly Telegram mirrors: make clear the reaction goes to Authenti, not the original.
-    const where = src.via === "authenti" ? `"${src.name}" באותנטי ניוז` : `"${src.name}"`;
+    const where = src.via === "authenti" && src.id !== AUTHENTI_ALL ? `"${src.name}" באותנטי ניוז` : `"${src.name}"`;
     pop.append(el("div", "pick-msg", `כדי להגיב בערוץ ${where} צריך להתחבר עם Google.`));
     const b = el("button", "google", "התחברות כדי להגיב");
     b.addEventListener("click", async () => {
