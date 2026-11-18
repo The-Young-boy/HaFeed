@@ -256,13 +256,14 @@ static CACHE: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<Str
 pub fn cached(key: &str, load: impl FnOnce() -> Option<Reply> + Send + 'static) -> Option<std::sync::Arc<Reply>> {
     use std::time::{Duration, Instant};
     let start = Instant::now();
+    let mut started = false;
     {
         let mut c = CACHE.lock().unwrap();
         c.retain(|_, s| s.busy || s.used.elapsed() < Duration::from_secs(300));
         let s = c.entry(key.to_string()).or_insert(Slot { at: start, used: start, reply: None, busy: false });
         s.used = start;
         if !s.busy && (s.reply.is_none() || s.at.elapsed() > Duration::from_secs(5)) {
-            s.busy = true;
+            s.busy = true; started = true;
             let key = key.to_string();
             std::thread::spawn(move || {
                 let r = load();
@@ -283,7 +284,9 @@ pub fn cached(key: &str, load: impl FnOnce() -> Option<Reply> + Send + 'static) 
     loop {
         let c = CACHE.lock().unwrap();
         let s = c.get(key)?;
-        if !s.busy || start.elapsed() > Duration::from_millis(250) { return s.reply.clone(); }
+        // Only the call that started the load waits for it. The page asks again for a busy key (425), and each wait
+        // here holds the board's thread: many channels at once stopped the whole feed.
+        if !s.busy || !started || start.elapsed() > Duration::from_millis(250) { return s.reply.clone(); }
         drop(c);
         std::thread::sleep(Duration::from_millis(20));
     }

@@ -1594,11 +1594,28 @@ const ADAPTERS = {
     async page(src, before) {
       const q = new URLSearchParams({ source: src.channel });
       if (before) q.set("before_id", before); else q.set("last_id", 0);
-      const data = await get(src, `${src.base}/api/get_messages_optimized.php?${q}`);
+      return authentiItems(src, (await get(src, `${src.base}/api/get_messages_optimized.php?${q}`)).messages || []);
+    },
+    // The newest items of one channel, for the 15-second check and the notifications: one shared request for all
+    // channels (ALL_CHANNELS, the newest 50 of them all) instead of one per channel. With all ~50 channels on, a
+    // request each every 15 seconds held the provider so long that the whole feed stopped.
+    async latest(src) {
+      if (src.channel === "ALL_CHANNELS") return this.page(src);
+      if (!authentiAll || Date.now() - authentiAll.at > 8000) {
+        const p = get(src, `${src.base}/api/get_messages_optimized.php?source=ALL_CHANNELS&last_id=0`);
+        authentiAll = { at: Date.now(), p }; p.catch(() => { authentiAll = null; });
+      }
+      return authentiItems(src, ((await authentiAll.p).messages || []).filter((m) => (m.source || "").trim() === src.channel));
+    },
+    rewind: (src, kept) => (kept.length ? minId(kept) : 0),
+  },
+};
+let authentiAll = null;
+function authentiItems(src, messages) {
       // All as one channel: the channel's name goes where Emess shows the reporter (it.author), off the text.
       const all = src.channel === "ALL_CHANNELS";
       const prefix = (name) => new RegExp("^\\s*" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*:\\s*");
-      const items = (data.messages || []).map((m) => {
+      const items = messages.map((m) => {
         const body = (m.description || "").replace(prefix(all ? m.source || "" : src.channel), "");
         // The text is the same markdown-ish format as the chat platform (bold titles, # headings).
         const text = body + (m.image_url ? `\n[image-embedded#](${m.image_url})` : "");
@@ -1607,10 +1624,7 @@ const ADAPTERS = {
                  breaking: m.is_breaking == 1, gone: !body.trim() && !m.image_url, ad: false };
       });
       return { items, next: items.length ? minId(items) : 0 };
-    },
-    rewind: (src, kept) => (kept.length ? minId(kept) : 0),
-  },
-};
+}
 
 // ---------- settings ----------
 const SET_KEY = "hz-settings";
@@ -2442,12 +2456,14 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) winA
 applyLook();
 winAccentLoad();
 // ---------- refresh ----------
+// The newest page of a source; an adapter that can share one request among its channels has latest().
+const newest = (s) => (ADAPTERS[s.kind].latest ? ADAPTERS[s.kind].latest(s) : ADAPTERS[s.kind].page(s, 0));
 async function poll(force = false) {
   checkVersion();
   if (inGallery) return;   // the grid is not a feed: nothing new goes into it
   loadBreaking();
   const srcs = tabSources(tab), st = stream;
-  const results = await Promise.all(srcs.map((s) => ADAPTERS[s.kind].page(s, 0).then((p) => p.items, () => null)));
+  const results = await Promise.all(srcs.map((s) => newest(s).then((p) => p.items, () => null)));
   if (st !== stream) return;   // the tab changed while this poll was out: its results belong to the old feed
   setOnline(results.some(Boolean) || !srcs.length);
   results.forEach((list, i) => health(srcs[i], !!list));
@@ -3624,7 +3640,7 @@ async function checkNotify() {
   const fresh = [];
   await Promise.all(picked.map(async ([s, mode]) => {
     try {
-      const list = mode === "breaking" && s.id === "hagizra" ? await ADAPTERS.chat.breaking(s) : (await ADAPTERS[s.kind].page(s)).items;
+      const list = mode === "breaking" && s.id === "hagizra" ? await ADAPTERS.chat.breaking(s) : (await newest(s)).items;
       const top = Math.max(0, ...list.map((x) => +x.id || 0));
       const seen = NSEEN[s.id];
       NSEEN[s.id] = Math.max(seen || 0, top);
@@ -4732,7 +4748,7 @@ function seeTab(t) { (S.tabSeen || (S.tabSeen = {}))[t] = Date.now(); saveSettin
 async function countTabs() {
   if (!S.tabCounts) { tabCounts = {}; return showCounts(); }
   if (document.hidden || $("#tabs").hidden) return;
-  const lists = await Promise.all(enabled().map((s) => ADAPTERS[s.kind].page(s).then((r) => r.items.filter(visible), () => [])));
+  const lists = await Promise.all(enabled().map((s) => newest(s).then((r) => r.items.filter(visible), () => [])));
   const all = lists.flat();
   tabCounts = {};
   for (const b of $("#tabs").children) {
