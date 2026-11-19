@@ -985,6 +985,7 @@ button:active:not(:disabled) { scale: .97; }
         <button data-v="light"><b>בהיר</b><small>תמיד</small></button>
         <button data-v="dark"><b>כהה</b><small>תמיד</small></button>
       </div>
+      <div class="row" id="lookRow" hidden><span>אותו מראה בלוח ובפיד<small>ערכת הצבעים וצבע ההדגשה. שינוי באחד עובר גם לשני. צריך להדליק את זה גם בלוח.</small></span><button class="switch" role="switch" id="setLookShare" aria-label="אותו מראה בלוח ובפיד"></button></div>
     </section>
     <section data-t="display">
       <h3>צבע הדגשה</h3>
@@ -1639,7 +1640,28 @@ if (!Array.isArray(S.on)) S.on = SOURCES.filter((s) => s.on).map((s) => s.id);
   for (const f of S.feeds || []) f.srcs = swap(f.srcs || []);
   if (S.notify?.ch?.emess) { for (const id of all) S.notify.ch[id] = S.notify.ch.emess; delete S.notify.ch.emess; }
 }
-const saveSettings = () => { try { localStorage.setItem(SET_KEY, JSON.stringify(S)); } catch {} };
+const saveSettings = () => { lookPush(); try { localStorage.setItem(SET_KEY, JSON.stringify(S)); } catch {} };
+// The shared look with HaLuach (/winfeed/look): each app writes its theme and accent to its look.json, and takes
+// the other's when it is newer. lookKey = what we last wrote or took, so only a real change is written.
+const lookNow = () => `${S.theme || "auto"}|${S.accent || "win"}`;
+let lookKey = lookNow();
+function lookPush() {
+  if (!S.lookShare || lookNow() === lookKey) return;
+  lookKey = lookNow(); S.lookAt = Date.now();
+  fetch("/winfeed/look?d=" + encodeURIComponent(JSON.stringify({ theme: S.theme || "auto", accent: S.accent || "win", at: S.lookAt }))).catch(() => {});
+}
+async function lookPull(turnOn) {
+  const j = await fetch("/winfeed/look").then((r) => r.json()).catch(() => null);
+  if (!j) return;
+  $("#lookRow").hidden = !j.installed;
+  if (!S.lookShare) return;
+  const o = j.other, ok = o && ["auto", "light", "dark"].includes(o.theme) && (o.accent === "win" || isHex(o.accent));
+  if (ok && (turnOn || o.at > (S.lookAt || 0))) {
+    S.theme = o.theme; S.accent = o.accent; S.lookAt = o.at; lookKey = lookNow();
+    saveSettings(); applyLook();
+    if ($("#sheet").classList.contains("show")) buildSettings();
+  } else if (turnOn) { lookKey = ""; saveSettings(); }   // HaLuach has none yet: ours goes first
+}
 // The Emess switch (S.emessOff) puts all its channels aside without touching which of them are on.
 authentiReady = true; syncAuthenti();
 const emessAside = (s) => s.via === "emess" && S.emessOff;
@@ -2463,6 +2485,7 @@ async function poll(force = false) {
   if (inGallery) return;   // the grid is not a feed: nothing new goes into it
   loadBreaking();
   const srcs = tabSources(tab), st = stream;
+  if (!st) return;   // the feed was let go while the board was closed (releaseFeed); opening it builds a new one
   const results = await Promise.all(srcs.map((s) => newest(s).then((p) => p.items, () => null)));
   if (st !== stream) return;   // the tab changed while this poll was out: its results belong to the old feed
   setOnline(results.some(Boolean) || !srcs.length);
@@ -3046,6 +3069,7 @@ function buildSettings() {
   document.querySelectorAll("#setOrder button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === S.order));
   document.querySelectorAll("#setLayout button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === S.layout));
   $("#setBreaking").setAttribute("aria-checked", S.breaking);
+  $("#setLookShare").setAttribute("aria-checked", !!S.lookShare);
   $("#setReacts").setAttribute("aria-checked", S.reactions !== false);
   $("#setAutoplay").setAttribute("aria-checked", S.autoplay !== false);
   $("#setSound").setAttribute("aria-checked", S.autoSound === true);
@@ -3171,7 +3195,7 @@ async function showWhatsNew() {
 // It opens in the browser; nothing is sent until the user submits it there.
 // What a problem report carries: the version, Windows, the channels that are on, and the provider's and page's logs.
 async function techInfo() {
-  const [st, sys, ua] = await Promise.all([upd(), fetch("/winfeed/report").then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
+  const [st, sys, ua] = await Promise.all([upd(), fetch("/winfeed/report", { signal: AbortSignal.timeout(5000) }).then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
     navigator.userAgentData?.getHighEntropyValues(["platformVersion"]).catch(() => null)]);
   // The provider knows the exact build; the browser only whether it is Windows 11 (platform 13 and up).
   const win = sys.build || (ua?.platformVersion ? `${parseInt(ua.platformVersion) >= 13 ? "Windows 11" : "Windows 10"} (${ua.platformVersion})` : "לא ידוע");
@@ -3186,7 +3210,9 @@ async function reportProblem() {
   toast("נפתח דף בעיה ב-GitHub. שום דבר לא נשלח עד שתלחצו שם על שליחה.");
 }
 // The same details as plain text, for the forum or a private message.
+// A time limit on each part (5-10 seconds): when the provider is stuck, the details still come, with what the page knows.
 async function copyTech() {
+  toast("אוסף את הפרטים...");
   const t = await techInfo();
   const text = `פרטים טכניים - הפיד\nגרסה: ${t.ver}\nWindows: ${t.win}\nערוצים דלוקים ${t.channels}\n\nיומן:\n${t.log}`;
   try { await navigator.clipboard.writeText(text); toast("הפרטים הועתקו. אפשר להדביק בפורום או בהודעה."); } catch { toast("ההעתקה לא הצליחה"); }
@@ -3418,6 +3444,9 @@ $("#setSound").addEventListener("click", () => {
   document.querySelectorAll("video").forEach((v) => { if (!v.controls) v.muted = !S.autoSound; });
 });
 $("#setReacts").addEventListener("click", () => { S.reactions = S.reactions === false; saveSettings(); buildSettings(); applyOrder(); });
+$("#setLookShare").addEventListener("click", () => { S.lookShare = !S.lookShare; saveSettings(); buildSettings(); if (S.lookShare) lookPull(true); });
+setTimeout(lookPull, 3000);
+setInterval(() => { if (!document.hidden) lookPull(); }, 60000);
 $("#setBreaking").addEventListener("click", () => { S.breaking = !S.breaking; saveSettings(); buildSettings(); loadBreaking(); });
 $("#setWizard").addEventListener("click", () => { closeSettings(); openWizard(0); });
 let dirty = false;
@@ -4057,7 +4086,9 @@ const plog = (m) => {
   return fetch("/winfeed/log?m=" + encodeURIComponent(String(m).slice(0, 300))).catch(() => {});
 };
 addEventListener("error", (e) => plog(`error ${e.message} @${e.lineno}`));
-addEventListener("unhandledrejection", (e) => plog(`rejection ${e.reason && (e.reason.stack || e.reason.message || e.reason)}`));async function react(post, emo) {
+addEventListener("unhandledrejection", (e) => plog(`rejection ${e.reason && (e.reason.stack || e.reason.message || e.reason)}`));
+addEventListener("error", (e) => { if (e.error || e.message) plog(`error ${e.error?.stack || e.message}`); });   // not the load errors of pictures (no bubble)
+async function react(post, emo) {
   plog(`react ${post ? post.dataset.key : "no post"} ${emo}`);
   const it = post._item, src = byId(it.src), key = keyOf(it), prev = MINE[key] || null;
   if (needsLogin(src)) return openPicker(post);

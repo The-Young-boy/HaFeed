@@ -159,6 +159,23 @@ impl IFeedResourceProvider_Impl for Provider_Impl {
         if uri.contains("/winfeed/report") {
             return args.SetResponse(&respond(report().as_bytes(), "application/json", 200)?);
         }
+        // /winfeed/look[?d=<json>]: the shared look with HaLuach. d = {theme, accent, at}: written to our look.json.
+        // Without d: {installed, other}, other = HaLuach's look.json (its AppData writes may land in its package's LocalCache).
+        if uri.contains("/winfeed/look") {
+            let local = std::path::PathBuf::from(std::env::var("LOCALAPPDATA").unwrap_or_default());
+            if let Some(d) = uri.split_once("/winfeed/look?").and_then(|(_, q)| http::query(q, "d").next()) {
+                if d.len() > 2000 || serde_json::from_str::<serde_json::Value>(&d).is_err() { return args.SetResponse(&respond(b"bad", "text/plain", 400)?) }
+                let _ = std::fs::create_dir_all(local.join("HagizraFeed"));
+                let _ = std::fs::write(local.join("HagizraFeed").join("look.json"), d);
+                return args.SetResponse(&respond(b"ok", "text/plain", 200)?);
+            }
+            let pkgs: Vec<std::path::PathBuf> = std::fs::read_dir(local.join("Packages")).into_iter().flatten().flatten()
+                .filter(|e| e.file_name().to_string_lossy().starts_with("HaLuachWidget_")).map(|e| e.path()).collect();
+            let other = pkgs.iter().map(|p| p.join("LocalCache").join("Local").join("HaLuach").join("look.json")).chain([local.join("HaLuach").join("look.json")])
+                .filter_map(|p| std::fs::read_to_string(p).ok()).filter_map(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+                .max_by_key(|v| v["at"].as_i64().unwrap_or(0));
+            return args.SetResponse(&respond(serde_json::json!({ "installed": !pkgs.is_empty(), "other": other }).to_string().as_bytes(), "application/json", 200)?);
+        }
         // /winfeed/metered: 1 when Windows counts the connection as metered (a SIM, a hotspot): the page's data saver.
         if uri.contains("/winfeed/metered") {
             return args.SetResponse(&respond(if metered() { b"1" } else { b"0" }, "text/plain", 200)?);
