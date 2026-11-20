@@ -606,7 +606,9 @@ a.src-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 :root.compact .post .col > .media ~ .media { display: none; }
 /* A video playing in compact gets the full row: room for its controls, progress bar and menu. */
 :root.compact .post .col > .media.playing { grid-column: 1 / -1; grid-row: auto; width: auto; height: auto; aspect-ratio: auto; }
-:root.compact .post .col > .media.playing video { height: auto; max-height: 520px; }
+:root.compact .post .col > .media.playing video { height: auto; max-height: min(520px, 70vh); object-fit: contain; }
+/* Full screen shows the whole frame, never the cropped thumbnail. */
+video:fullscreen { object-fit: contain !important; max-height: none !important; }
 :root.compact .post .col > .audio, :root.compact .post .col > .actions { grid-column: 1 / -1; }
 label.chip { cursor: pointer; }
 .chip.danger { color: var(--breaking); border-color: var(--breaking); }
@@ -1304,6 +1306,8 @@ const SOURCES = [
     logo: "https://myshemesh.co.il/api/files/27ae34f9175316e16fcbb9bc47a3deb62d2ab3c9" },
   { id: "moked", name: "המוקד", note: "פתוח גם דרך אותנטי ניוז", cat: "news", kind: "chat", base: "https://channel.h-news.co.il", login: true,
     logo: "https://channel.h-news.co.il/api/files/6fcfdaa2e731121496036be32b4174d06554d680" },
+  { id: "extsync", name: "הזירה הטכנולוגית", cat: "news", kind: "chat", base: "https://channel.extsync.com", login: true,
+    logo: "https://channel.extsync.com/assets/favicon.ico" },
   { id: "zirat", name: "זירת החדשות", note: "פתוח גם דרך אותנטי ניוז", cat: "news", kind: "chat", base: "https://channel.zirat.news", login: true,
     logo: "https://channel.zirat.news/api/files/6e47281f525cff203a6fa2e8fc66995afe31f149" },
 
@@ -1885,7 +1889,9 @@ function mediaBox(item, of) {
     v.addEventListener("timeupdate", () => { if (v.duration) dur.textContent = clock(v.duration - v.currentTime); });
     v.addEventListener("play", () => box.classList.add("auto"));
     v.addEventListener("pause", () => box.classList.remove("auto"));
-    const start = () => { if (S.vidBig) { v.pause(); return openVideo(item.url.split("#")[0]); } if (!v.getAttribute("src")) v.src = v.dataset.src; v.muted = false; v.controls = true; v.loop = false; grow(box.closest(".post"), () => box.classList.add("playing")); v.play(); };
+    const start = () => { if (S.vidBig !== false) { v.pause(); return openVideo(item.url.split("#")[0]); } if (!v.getAttribute("src")) v.src = v.dataset.src; v.muted = false; v.controls = true; v.loop = false; grow(box.closest(".post"), () => box.classList.add("playing")); v.play();
+      // In compact the video grows to the full row: keep all of it on screen, for watching and scrolling on.
+      if (density() === "dense") { const keep = () => box.scrollIntoView({ block: "nearest", behavior: "smooth" }); setTimeout(keep, 320); v.addEventListener("loadedmetadata", () => setTimeout(keep, 50), { once: true }); } };
     play.addEventListener("click", start);
     mute.addEventListener("click", (e) => { e.stopPropagation(); start(); });
     v.addEventListener("click", () => { if (!v.controls) start(); });
@@ -3073,7 +3079,7 @@ function buildSettings() {
   $("#setReacts").setAttribute("aria-checked", S.reactions !== false);
   $("#setAutoplay").setAttribute("aria-checked", S.autoplay !== false);
   $("#setSound").setAttribute("aria-checked", S.autoSound === true);
-  $("#setVidBig").setAttribute("aria-checked", S.vidBig === true);
+  $("#setVidBig").setAttribute("aria-checked", S.vidBig !== false);
   $("#setSoundRow").hidden = S.autoplay === false;
   $("#setKeepSec").value = S.keepSec; $("#setKeepItems").value = S.keepItems;
   document.querySelectorAll("#setFont button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === (S.font || "m")));
@@ -3434,7 +3440,7 @@ $("#resetAll").addEventListener("click", (e) => {
   try { Object.keys(localStorage).filter((k) => k.startsWith("hz-")).forEach((k) => localStorage.removeItem(k)); } catch {}
   location.reload();
 });
-$("#setVidBig").addEventListener("click", () => { S.vidBig = !S.vidBig; saveSettings(); buildSettings(); });
+$("#setVidBig").addEventListener("click", () => { S.vidBig = S.vidBig === false; saveSettings(); buildSettings(); });
 $("#setAutoplay").addEventListener("click", () => {
   S.autoplay = S.autoplay === false; saveSettings(); buildSettings();
   if (!S.autoplay) document.querySelectorAll("video").forEach((v) => { if (!v.controls) v.pause(); });
